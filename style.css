@@ -1,0 +1,29 @@
+.cpg-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.cpg-row {
+    display: flex;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.cpg-item {
+    flex: 1;
+    margin: 10px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    background-color: #fff;
+}
+
+.cpg-item img {
+    max-width: 100%;
+    height: auto;
+}
+
+.cpg-item h3 {
+    font-size: 16px;
+    margin-top: 10px;
+}

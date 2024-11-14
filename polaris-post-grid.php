@@ -400,23 +400,28 @@ function cpg_register_shortcode($atts) {
         'order' => 'DESC',
     );
 
-    // Additional query filtering for category or tag if specified
-    if ($atts['category'] === 'current' && (is_category() || is_tag())) {
-        $queried_object = get_queried_object();
-        $current_slug = $queried_object->slug;
-        $query_args['tax_query'] = array(
-            array(
-                'taxonomy' => is_category() ? 'category' : 'post_tag',
-                'field' => 'slug',
-                'terms' => $current_slug,
-            ),
-        );
+    // If on search page, apply only the search term without additional filters
+    if (is_search()) {
+        $query_args['s'] = get_search_query(); // Use the search term from the search query
     } else {
-        if (!empty($atts['category'])) {
-            $query_args['category_name'] = $atts['category'];
-        }
-        if (!empty($atts['tag'])) {
-            $query_args['tag'] = $atts['tag'];
+        // Additional query filtering for category or tag if specified
+        if ($atts['category'] === 'current' && (is_category() || is_tag())) {
+            $queried_object = get_queried_object();
+            $current_slug = $queried_object->slug;
+            $query_args['tax_query'] = array(
+                array(
+                    'taxonomy' => is_category() ? 'category' : 'post_tag',
+                    'field' => 'slug',
+                    'terms' => $current_slug,
+                ),
+            );
+        } else {
+            if (!empty($atts['category'])) {
+                $query_args['category_name'] = $atts['category'];
+            }
+            if (!empty($atts['tag'])) {
+                $query_args['tag'] = $atts['tag'];
+            }
         }
     }
 
@@ -485,3 +490,4 @@ function cpg_register_shortcode($atts) {
     return ob_get_clean();
 }
 add_shortcode('category_post_grid', 'cpg_register_shortcode');
+

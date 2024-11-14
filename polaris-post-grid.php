@@ -400,12 +400,13 @@ function cpg_register_shortcode($atts) {
         'order' => 'DESC',
     );
 
-    // If on search page, apply only the search term without additional filters
-    if (is_search()) {
-        $query_args['s'] = get_search_query(); // Use the search term from the search query
-    } else {
-        // Additional query filtering for category or tag if specified
-        if ($atts['category'] === 'current' && (is_category() || is_tag())) {
+    // If category is set to "current," adapt the query based on the current context (category, tag, or search)
+    if ($atts['category'] === 'current') {
+        if (is_search()) {
+            // Display search results if on search page
+            $query_args['s'] = get_search_query();
+        } elseif (is_category() || is_tag()) {
+            // Get current category or tag and filter posts accordingly
             $queried_object = get_queried_object();
             $current_slug = $queried_object->slug;
             $query_args['tax_query'] = array(
@@ -415,13 +416,14 @@ function cpg_register_shortcode($atts) {
                     'terms' => $current_slug,
                 ),
             );
-        } else {
-            if (!empty($atts['category'])) {
-                $query_args['category_name'] = $atts['category'];
-            }
-            if (!empty($atts['tag'])) {
-                $query_args['tag'] = $atts['tag'];
-            }
+        }
+    } else {
+        // Standard category and tag filtering
+        if (!empty($atts['category'])) {
+            $query_args['category_name'] = $atts['category'];
+        }
+        if (!empty($atts['tag'])) {
+            $query_args['tag'] = $atts['tag'];
         }
     }
 

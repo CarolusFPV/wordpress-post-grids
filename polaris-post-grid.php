@@ -400,7 +400,7 @@ function cpg_register_shortcode($atts) {
         'order' => 'DESC',
     );
 
-    // If category is set to "current," adapt the query based on the current context (category, tag, or search)
+    // Check for special category values
     if ($atts['category'] === 'current') {
         if (is_search()) {
             // Display search results if on search page
@@ -416,6 +416,24 @@ function cpg_register_shortcode($atts) {
                     'terms' => $current_slug,
                 ),
             );
+        }
+    } elseif ($atts['category'] === 'related') {
+        // Display posts with the same category or tag as the current post, prioritizing categories
+        if (is_single()) {
+            $post_id = get_the_ID();
+            $query_args['post__not_in'] = array($post_id); // Exclude the current post
+
+            // Get categories of the current post and prioritize them
+            $post_categories = wp_get_post_terms($post_id, 'category', array('fields' => 'slugs'));
+            if (!empty($post_categories)) {
+                $query_args['category_name'] = implode(',', $post_categories);
+            } else {
+                // Fallback to tags if no categories are found
+                $post_tags = wp_get_post_terms($post_id, 'post_tag', array('fields' => 'slugs'));
+                if (!empty($post_tags)) {
+                    $query_args['tag_slug__in'] = $post_tags;
+                }
+            }
         }
     } else {
         // Standard category and tag filtering
@@ -492,4 +510,3 @@ function cpg_register_shortcode($atts) {
     return ob_get_clean();
 }
 add_shortcode('category_post_grid', 'cpg_register_shortcode');
-

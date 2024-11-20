@@ -436,12 +436,25 @@ function cpg_register_shortcode($atts) {
             }
         }
     } else {
-        // Standard category and tag filtering
+        // Construct a tax_query to handle category and tag with an OR relation
+        $query_args['tax_query'] = array(
+            'relation' => 'OR',
+        );
+    
         if (!empty($atts['category'])) {
-            $query_args['category_name'] = $atts['category'];
+            $query_args['tax_query'][] = array(
+                'taxonomy' => 'category',
+                'field' => 'slug',
+                'terms' => $atts['category'],
+            );
         }
+    
         if (!empty($atts['tag'])) {
-            $query_args['tag'] = $atts['tag'];
+            $query_args['tax_query'][] = array(
+                'taxonomy' => 'post_tag',
+                'field' => 'slug',
+                'terms' => $atts['tag'],
+            );
         }
     }
 
@@ -464,9 +477,9 @@ function cpg_register_shortcode($atts) {
             // Display the post image
             echo '<div class="cpg-image-wrapper">';
             if (has_post_thumbnail()) {
-                the_post_thumbnail('medium', ['class' => 'featured']);
+                the_post_thumbnail('large', ['class' => 'featured']);
             } else {
-                echo '<img src="https://ewtn.polarisit.nl/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" />';
+                echo '<img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" />';
             }
             echo '</div>';
 
@@ -481,6 +494,8 @@ function cpg_register_shortcode($atts) {
             if ($atts['view'] === 'list') {
                 echo '<p>' . wp_trim_words(get_the_excerpt(), 15, '...') . '</p>';
             }
+            // Display the post date
+            // echo '<span class="cpg-date">' . get_the_date() . '</span>';
             echo '</div>';
 
             echo '</a>';

@@ -1,29 +1,139 @@
+/* Styles for Grid Layout */
 .cpg-grid {
     display: flex;
     flex-wrap: wrap;
+    gap: 10px;
+    justify-content: flex-start; /* Align posts to the left */
 }
 
-.cpg-row {
-    display: flex;
-    width: 100%;
+.cpg-grid .cpg-item {
+    flex: 1 0 calc(100% / var(--posts-per-line) - 10px); /* Calculate width based on posts per line */
+    max-width: calc(100% / var(--posts-per-line) - 10px);
     margin-bottom: 20px;
-}
-
-.cpg-item {
-    flex: 1;
-    margin: 10px;
-    text-align: center;
+    text-align: left;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     padding: 10px;
     background-color: #fff;
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    overflow: hidden;
 }
 
-.cpg-item img {
-    max-width: 100%;
+.cpg-grid .cpg-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Styles for List Layout */
+.cpg-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cpg-list .cpg-item {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    overflow: hidden;
+    position: relative;
+    line-height: 1.2em;
+}
+
+.cpg-list .cpg-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.cpg-image-wrapper {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    max-height: var(--max-image-height);
+}
+
+.cpg-image-wrapper img.featured {
+    width: 100%;
+    object-fit: cover;
+    object-position: center;
+    max-height: var(--max-image-height);
+    min-height: var(--max-image-height);
+}
+
+.cpg-list .cpg-image-wrapper {
+    width: 30%;
+    max-width: 150px;
+    margin-right: 20px;
+}
+
+.cpg-content {
+    flex: 1;
+}
+
+.cpg-content h3 {
+    font-size: 14px;
+    /* font-weight: bold; */
+    margin-bottom: 5px;
+    color: #333;
+    padding-bottom: 0px;
+    padding-top: 8px;
+    line-height: 1.2em;
+}
+
+.cpg-list .cpg-content h3 {
+    font-size: 14px;
+    /* font-weight: bold; */
+    margin-bottom: 5px;
+}
+
+.cpg-list .cpg-content p {
+    font-size: 12px;
+    color: #666;
+}
+
+.cpg-item img.icon-overlay {
+    max-width: 30px;
     height: auto;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    margin-top: -10px;
+    margin-left: -10px;
 }
 
-.cpg-item h3 {
-    font-size: 16px;
-    margin-top: 10px;
+/* Responsive Design: Grid becomes List on Smaller Screens */
+@media screen and (max-width: 768px) {
+    .cpg-list {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cpg-list .cpg-item {
+        flex-direction: row; /* Switch to a row layout for list appearance */
+        width: 100%; /* Use full width on mobile */
+        max-width: 100%; /* Override max-width to use full width */
+        margin-bottom: 20px;
+        align-items: center;
+    }
+
+    .cpg-list .cpg-image-wrapper {
+        width: 200px;
+        margin-right: 20px;
+    }
+
+    .cpg-list .cpg-content h3 {
+        font-size: 16px;
+    }
+
+    .cpg-list .cpg-content p {
+        font-size: 12px;
+    }
 }

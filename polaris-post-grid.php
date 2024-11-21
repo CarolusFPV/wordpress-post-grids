@@ -1,12 +1,27 @@
 <?php
 /*
-Plugin Name: Polaris Post Grid
+Plugin Name: Polaris Post Grids
 Description: Display posts in a grid or list.
 Version: 1.4
 Author: Casper Molhoek
+Author URI: https://www.polarisit.nl
+Plugin URI: https://www.polarisit.nl/post-grids
 */
 
-add_action('admin_menu', 'cpg_add_admin_menu');
+// Hook into Polaris Core's `polaris_core_register_addons` action
+add_action('polaris_core_register_addons', 'register_polaris_post_grid_tabbed_menu');
+
+function register_polaris_post_grid_tabbed_menu() {
+    add_submenu_page(
+        'polaris-core',
+        'Post Grid',
+        'Post Grid',
+        'manage_options',
+        'polaris-post-grid-settings',
+        'cpg_tabbed_settings_page'
+    );
+}
+
 add_shortcode('category_post_grid', 'cpg_register_shortcode');
 add_action('admin_enqueue_scripts', 'cpg_enqueue_admin_scripts');
 add_action('add_meta_boxes', 'cpg_add_icon_meta_box');
@@ -14,34 +29,29 @@ add_action('save_post', 'cpg_save_post_icon_meta');
 add_action('quick_edit_custom_box', 'cpg_quick_edit_icon_box', 10, 2);
 add_action('save_post', 'cpg_save_quick_edit_icon_meta');
 
-// Add custom CSS option page
-function cpg_add_admin_menu() {
-    add_menu_page(
-        'EWTN Post Grids',
-        'EWTN Post Grids',
-        'manage_options',
-        'cpg_settings',
-        'cpg_shortcode_generator_page',
-        'dashicons-grid-view'
-    );
+function cpg_tabbed_settings_page() {
+    $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'generator';
 
-    add_submenu_page(
-        'cpg_settings',
-        'Image Library',
-        'Image Library',
-        'manage_options',
-        'cpg_image_library',
-        'cpg_image_library_page'
-    );
+    ?>
+    <div class="wrap">
+        <h1>Post Grid Settings</h1>
+        <h2 class="nav-tab-wrapper">
+            <a href="?page=polaris-post-grid-settings&tab=generator" class="nav-tab <?php echo $current_tab === 'generator' ? 'nav-tab-active' : ''; ?>">Shortcode Generator</a>
+            <a href="?page=polaris-post-grid-settings&tab=images" class="nav-tab <?php echo $current_tab === 'images' ? 'nav-tab-active' : ''; ?>">Image Library</a>
+            <a href="?page=polaris-post-grid-settings&tab=css" class="nav-tab <?php echo $current_tab === 'css' ? 'nav-tab-active' : ''; ?>">Custom CSS</a>
+        </h2>
 
-    add_submenu_page(
-        'cpg_settings',
-        'Custom CSS',
-        'Custom CSS',
-        'manage_options',
-        'cpg_custom_css',
-        'cpg_custom_css_page'
-    );
+        <?php
+        if ($current_tab === 'generator') {
+            cpg_shortcode_generator_page();
+        } elseif ($current_tab === 'images') {
+            cpg_image_library_page();
+        } elseif ($current_tab === 'css') {
+            cpg_custom_css_page();
+        }
+        ?>
+    </div>
+    <?php
 }
 
 function cpg_shortcode_generator_page() {
@@ -93,16 +103,29 @@ function cpg_shortcode_generator_page() {
                     <td><input type="checkbox" name="cpg_view" value="list" id="cpg_view_checkbox" /></td>
                 </tr>
                 <tr valign="top">
-                    <th scope="row">Mobile List limit</th>
+                    <th scope="row">Mobile List Limit</th>
                     <td><input type="number" name="cpg_list_limit" value="6" /></td>
                 </tr>
                 <tr valign="top">
-                    <th scope="row">Max Image Height (e.g., 200px)</th>
+                    <th scope="row">Max Image Height</th>
                     <td><input type="text" name="cpg_max_image_height" value="200px" /></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row">Enable Pagination</th>
-                    <td><input type="checkbox" name="cpg_pagination" value="true" /></td>
+                    <td><input type="checkbox" name="cpg_pagination" value="false" /></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row">Show Excerpt <br>(post text under title)</th>
+                    <td><input type="checkbox" name="cpg_show_excerpt" value="false" /></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row">Sort Order</th>
+                    <td>
+                        <select name="cpg_order">
+                            <option value="DESC">Newest to Oldest</option>
+                            <option value="ASC">Oldest to Newest</option>
+                        </select>
+                    </td>
                 </tr>
             </table>
             <?php submit_button('Generate Shortcode'); ?>
@@ -116,14 +139,16 @@ function cpg_shortcode_generator_page() {
             $max_image_height = sanitize_text_field($_POST['cpg_max_image_height']);
             $list_limit = intval($_POST['cpg_list_limit']); // Capture list limit value
             $pagination = isset($_POST['cpg_pagination']) ? 'true' : 'false';
-            
+            $excerpt = isset($_POST['cpg_show_excerpt']) ? 'true' : 'false';
+            $order = sanitize_text_field($_POST['cpg_order']);
+
             $shortcode = '[category_post_grid posts_per_line="' . $posts_per_line . '"';
-            
+
             // Include the category if specified
             if (!empty($category)) {
                 $shortcode .= ' category="' . $category . '"';
             }
-            
+
             // Include the tag if specified
             if (!empty($tag)) {
                 $shortcode .= ' tag="' . $tag . '"';
@@ -134,13 +159,16 @@ function cpg_shortcode_generator_page() {
                 $shortcode .= ' number_of_lines="' . $number_of_lines . '"';
             }
 
-            // Include the list limit if specified
             if ($view === 'list' && !empty($list_limit)) {
                 $shortcode .= ' list_limit="' . $list_limit . '"';
             }
-            
-            $shortcode .= ' view="' . $view . '" max_image_height="' . $max_image_height . '" pagination="' . $pagination . '"]';
-            
+
+            if ($excerpt === 'true') {
+                $shortcode .= ' show_post_excerpt="' . $excerpt . '"';
+            }
+
+            $shortcode .= ' view="' . $view . '" max_image_height="' . $max_image_height . '" pagination="' . $pagination . '" order="' . $order . '"]';
+
             echo '<h2>Your Shortcode</h2>';
             echo '<code>' . $shortcode . '</code>';
         }
@@ -148,7 +176,6 @@ function cpg_shortcode_generator_page() {
     </div>
     <?php
 }
-
 
 function cpg_image_library_page() {
     // Handle form submission
@@ -195,35 +222,37 @@ function cpg_image_library_page() {
     <?php
 }
 
-// Custom CSS settings page
 function cpg_custom_css_page() {
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        if (isset($_POST['cpg_custom_css'])) {
-            update_option('cpg_custom_css', wp_unslash($_POST['cpg_custom_css']));
+    $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
+
+    // Handle form submission
+    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cpg_custom_css'])) {
+        if (is_writable($css_file_path)) {
+            file_put_contents($css_file_path, wp_unslash($_POST['cpg_custom_css']));
+            echo '<div class="notice notice-success"><p>CSS file updated successfully.</p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>Unable to write to the CSS file. Please check file permissions.</p></div>';
         }
     }
 
-    $custom_css = get_option('cpg_custom_css', '');
+    // Load the CSS file content
+    $custom_css = '';
+    if (file_exists($css_file_path)) {
+        $custom_css = file_get_contents($css_file_path);
+    }
 
     ?>
     <div class="wrap">
         <h1>Custom CSS</h1>
-        <form method="post" action="">
-            <textarea name="cpg_custom_css" rows="20" cols="100" style="width:100%;"><?php echo esc_textarea($custom_css); ?></textarea>
+        <p>Get's injected straight into the shortcode.</p>
+        <form method="post">
+            <textarea name="cpg_custom_css" rows="20" cols="100" style="width: 100%;"><?php echo esc_textarea($custom_css); ?></textarea>
             <?php submit_button('Save Custom CSS'); ?>
         </form>
     </div>
     <?php
 }
 
-// Enqueue the custom CSS
-function cpg_enqueue_custom_css() {
-    $custom_css = get_option('cpg_custom_css', '');
-    if (!empty($custom_css)) {
-        echo '<style type="text/css">' . $custom_css . '</style>';
-    }
-}
-add_action('wp_head', 'cpg_enqueue_custom_css');
 
 function cpg_enqueue_admin_scripts() {
     wp_enqueue_media();  // Load the necessary media scripts
@@ -367,7 +396,17 @@ function cpg_register_shortcode($atts) {
         $paged = 1;
     }
 
-    // Shortcode attributes with default values
+    static $css_injected = false;
+
+    // Inject CSS only once per page
+    if (!$css_injected) {
+        $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
+        if (file_exists($css_file_path)) {
+            echo '<style type="text/css">' . file_get_contents($css_file_path) . '</style>';
+        }
+        $css_injected = true;
+    }
+
     $atts = shortcode_atts(
         array(
             'category' => '',
@@ -378,6 +417,8 @@ function cpg_register_shortcode($atts) {
             'view' => 'grid',
             'max_image_height' => 'none',
             'pagination' => false,
+            'show_post_excerpt' => false,
+            'order' => 'DESC',
         ),
         $atts,
         'category_post_grid'
@@ -397,7 +438,7 @@ function cpg_register_shortcode($atts) {
         'paged' => $paged,
         'post_type' => array('video', 'post'),
         'orderby' => 'post_date',
-        'order' => 'DESC',
+        'order' => in_array(strtoupper($atts['order']), ['ASC', 'DESC']) ? strtoupper($atts['order']) : 'DESC', // Validate order attribute
     );
 
     // Check for special category values
@@ -440,7 +481,7 @@ function cpg_register_shortcode($atts) {
         $query_args['tax_query'] = array(
             'relation' => 'OR',
         );
-    
+
         if (!empty($atts['category'])) {
             $query_args['tax_query'][] = array(
                 'taxonomy' => 'category',
@@ -448,7 +489,7 @@ function cpg_register_shortcode($atts) {
                 'terms' => $atts['category'],
             );
         }
-    
+
         if (!empty($atts['tag'])) {
             $query_args['tax_query'][] = array(
                 'taxonomy' => 'post_tag',
@@ -463,10 +504,9 @@ function cpg_register_shortcode($atts) {
     ob_start();
 
     if ($query->have_posts()) {
-        // Open the grid or list container with appropriate class
         $container_class = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
         echo '<div class="' . esc_attr($container_class) . '" data-posts-per-line="' . intval($atts['posts_per_line']) . '" style="--posts-per-line: ' . intval($atts['posts_per_line']) . '; --max-image-height: ' . esc_attr($atts['max_image_height']) . ';">';
-        
+
         while ($query->have_posts()) {
             $query->the_post();
             $post_icon = get_post_meta(get_the_ID(), '_cpg_post_icon', true);
@@ -488,20 +528,18 @@ function cpg_register_shortcode($atts) {
                 echo '<img src="' . esc_url($post_icon) . '" class="icon-overlay" alt="Post Icon" />';
             }
 
-            // Display the post title and excerpt for list view
+            // Display the post title and optionally the excerpt
             echo '<div class="cpg-content">';
             echo '<h3>' . get_the_title() . '</h3>';
-            if ($atts['view'] === 'list') {
+            if (!empty($atts['show_post_excerpt']) && $atts['show_post_excerpt'] === 'true') {
                 echo '<p>' . wp_trim_words(get_the_excerpt(), 15, '...') . '</p>';
             }
-            // Display the post date
-            // echo '<span class="cpg-date">' . get_the_date() . '</span>';
             echo '</div>';
 
             echo '</a>';
         }
 
-        echo '</div>'; // Close the grid/list container
+        echo '</div>';
 
         // Pagination
         if ($atts['pagination']) {
@@ -525,3 +563,4 @@ function cpg_register_shortcode($atts) {
     return ob_get_clean();
 }
 add_shortcode('category_post_grid', 'cpg_register_shortcode');
+

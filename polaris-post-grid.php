@@ -457,7 +457,7 @@ function cpg_register_shortcode($atts) {
                     'post_type' => array('video', 'post'),
                     'orderby' => 'post_date',
                     'order' => in_array(strtoupper($atts['order']), ['ASC', 'DESC']) ? strtoupper($atts['order']) : 'DESC',
-                    's' => implode(' ', array_slice($capitalized_tokens, 0, 5)),
+                    's' => implode(' ', array_slice($capitalized_tokens, 0, 3)),
                     'post__not_in' => array($post_id),
                 );
 

@@ -439,12 +439,16 @@ function cpg_register_shortcode($atts) {
         $post_id = get_the_ID();
         $post_categories = wp_get_post_terms($post_id, 'category', array('fields' => 'ids'));
 
+        // Load blacklist words from external file
+        $blacklist_file = plugin_dir_path(__FILE__) . 'search_blacklist.php';
+        $blacklist_words = file_exists($blacklist_file) ? include($blacklist_file) : [];
+
         // Search query on capitalized title tokens
         $current_post_title = get_the_title($post_id);
         if (!empty($current_post_title)) {
             $tokens = preg_split('/\s+/', $current_post_title);
-            $capitalized_tokens = array_filter($tokens, function($word) {
-                return ctype_upper(mb_substr($word, 0, 1));
+            $capitalized_tokens = array_filter($tokens, function($word) use ($blacklist_words) {
+                return ctype_upper(mb_substr($word, 0, 1)) && !in_array(mb_strtolower($word), array_map('mb_strtolower', $blacklist_words));
             });
             if (!empty($capitalized_tokens)) {
                 $query_args = array(

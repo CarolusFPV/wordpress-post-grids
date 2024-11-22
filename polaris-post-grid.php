@@ -432,6 +432,148 @@ function cpg_register_shortcode($atts) {
         $posts_per_page = $atts['posts_per_line'] * $atts['number_of_lines'];
     }
 
+    // Related posts
+    if ($atts['category'] === 'related' && is_single()) {
+        $combined_results = array();
+        $results_needed = $atts['posts_per_line'] * $atts['number_of_lines'];
+        $post_id = get_the_ID();
+        $post_categories = wp_get_post_terms($post_id, 'category', array('fields' => 'ids'));
+
+        // Search query on capitalized title tokens
+        $current_post_title = get_the_title($post_id);
+        if (!empty($current_post_title)) {
+            $tokens = preg_split('/\s+/', $current_post_title);
+            $capitalized_tokens = array_filter($tokens, function($word) {
+                return ctype_upper(mb_substr($word, 0, 1));
+            });
+            if (!empty($capitalized_tokens)) {
+                $query_args = array(
+                    'posts_per_page' => $results_needed,
+                    'paged' => $paged,
+                    'post_type' => array('video', 'post'),
+                    'orderby' => 'post_date',
+                    'order' => in_array(strtoupper($atts['order']), ['ASC', 'DESC']) ? strtoupper($atts['order']) : 'DESC',
+                    's' => implode(' ', array_slice($capitalized_tokens, 0, 5)),
+                    'post__not_in' => array($post_id),
+                );
+
+                $query = new WP_Query($query_args);
+                if ($query->have_posts()) {
+                    while ($query->have_posts()) {
+                        $query->the_post();
+                        $combined_results[] = get_the_ID();
+                    }
+                }
+                wp_reset_postdata();
+            }
+        }
+
+        // Search query on first category if not enough results are found
+        if (count($combined_results) < $results_needed && !empty($post_categories)) {
+            $first_category = $post_categories[0];
+            $query_args = array(
+                'posts_per_page' => $results_needed - count($combined_results),
+                'paged' => $paged,
+                'post_type' => array('video', 'post'),
+                'orderby' => 'post_date',
+                'order' => 'DESC',
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => 'category',
+                        'field' => 'id',
+                        'terms' => $first_category,
+                        'operator' => 'IN',
+                    ),
+                ),
+                'post__not_in' => array_merge($combined_results, array($post_id)),
+            );
+
+            $query = new WP_Query($query_args);
+            if ($query->have_posts()) {
+                while ($query->have_posts()) {
+                    $query->the_post();
+                    $combined_results[] = get_the_ID();
+                }
+            }
+            wp_reset_postdata();
+        }
+
+        // Search query on any of the categories if still not enough results are found
+        if (count($combined_results) < $results_needed && !empty($post_categories)) {
+            $query_args = array(
+                'posts_per_page' => $results_needed - count($combined_results),
+                'paged' => $paged,
+                'post_type' => array('video', 'post'),
+                'orderby' => 'post_date',
+                'order' => 'DESC',
+                'tax_query' => array(
+                    array(
+                        'taxonomy' => 'category',
+                        'field' => 'id',
+                        'terms' => $post_categories,
+                        'operator' => 'IN',
+                    ),
+                ),
+                'post__not_in' => array_merge($combined_results, array($post_id)),
+            );
+
+            $query = new WP_Query($query_args);
+            if ($query->have_posts()) {
+                while ($query->have_posts()) {
+                    $query->the_post();
+                    $combined_results[] = get_the_ID();
+                }
+            }
+            wp_reset_postdata();
+        }
+
+        // Display combined results
+        ob_start();
+        if (!empty($combined_results)) {
+            $container_class = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
+            echo '<div class="' . esc_attr($container_class) . '" data-posts-per-line="' . intval($atts['posts_per_line']) . '" style="--posts-per-line: ' . intval($atts['posts_per_line']) . '; --max-image-height: ' . esc_attr($atts['max_image_height']) . ';">';
+
+            foreach ($combined_results as $post_id) {
+                setup_postdata(get_post($post_id));
+                $post_icon = get_post_meta($post_id, '_cpg_post_icon', true);
+
+                // Make the entire post item clickable and add a hover effect
+                echo '<a href="' . get_permalink($post_id) . '" class="cpg-item">';
+
+                // Display the post image
+                echo '<div class="cpg-image-wrapper">';
+                if (has_post_thumbnail($post_id)) {
+                    echo get_the_post_thumbnail($post_id, 'large', ['class' => 'featured']);
+                } else {
+                    echo '<img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" />';
+                }
+                echo '</div>';
+
+                // Display the icon as an overlay in the top left
+                if ($post_icon) {
+                    echo '<img src="' . esc_url($post_icon) . '" class="icon-overlay" alt="Post Icon" />';
+                }
+
+                // Display the post title and optionally the excerpt
+                echo '<div class="cpg-content">';
+                echo '<h3>' . get_the_title($post_id) . '</h3>';
+                if (!empty($atts['show_post_excerpt']) && $atts['show_post_excerpt'] === 'true') {
+                    echo '<p>' . wp_trim_words(get_the_excerpt($post_id), 15, '...') . '</p>';
+                }
+                echo '</div>';
+
+                echo '</a>';
+            }
+
+            echo '</div>';
+            wp_reset_postdata();
+        } else {
+            echo '<p>No posts found.</p>';
+        }
+
+        return ob_get_clean();
+    }
+
     // Construct query arguments based on provided attributes
     $query_args = array(
         'posts_per_page' => $posts_per_page,
@@ -457,24 +599,6 @@ function cpg_register_shortcode($atts) {
                     'terms' => $current_slug,
                 ),
             );
-        }
-    } elseif ($atts['category'] === 'related') {
-        // Display posts with the same category or tag as the current post, prioritizing categories
-        if (is_single()) {
-            $post_id = get_the_ID();
-            $query_args['post__not_in'] = array($post_id); // Exclude the current post
-
-            // Get categories of the current post and prioritize them
-            $post_categories = wp_get_post_terms($post_id, 'category', array('fields' => 'slugs'));
-            if (!empty($post_categories)) {
-                $query_args['category_name'] = implode(',', $post_categories);
-            } else {
-                // Fallback to tags if no categories are found
-                $post_tags = wp_get_post_terms($post_id, 'post_tag', array('fields' => 'slugs'));
-                if (!empty($post_tags)) {
-                    $query_args['tag_slug__in'] = $post_tags;
-                }
-            }
         }
     } else {
         // Construct a tax_query to handle category and tag with an OR relation
@@ -563,4 +687,5 @@ function cpg_register_shortcode($atts) {
     return ob_get_clean();
 }
 add_shortcode('category_post_grid', 'cpg_register_shortcode');
+
 

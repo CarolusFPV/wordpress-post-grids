@@ -8,6 +8,14 @@ Author URI: https://www.polarisit.nl
 Plugin URI: https://www.polarisit.nl/post-grids
 */
 
+/*
+Todo Features:
+- sortby option: date (default), random, trending [_week, _month, _year] (based on post_views/Jetpack view data within a certain period)
+- allowScroll option: scroll to load in more results
+- 
+
+*/
+
 // Hook into Polaris Core's `polaris_core_register_addons` action
 add_action('polaris_core_register_addons', 'register_polaris_post_grid_tabbed_menu');
 
@@ -22,7 +30,6 @@ function register_polaris_post_grid_tabbed_menu() {
     );
 }
 
-add_shortcode('category_post_grid', 'cpg_register_shortcode');
 add_action('admin_enqueue_scripts', 'cpg_enqueue_admin_scripts');
 add_action('add_meta_boxes', 'cpg_add_icon_meta_box');
 add_action('save_post', 'cpg_save_post_icon_meta');
@@ -390,15 +397,77 @@ function cpg_save_quick_edit_icon_meta($post_id) {
     }
 }
 
-function cpg_register_shortcode($atts) {
-    global $paged;
-    if (!isset($paged) || !$paged) {
-        $paged = 1;
+/**
+ * Helper function: Get related posts using Relevanssi.
+ * - Combines the post title, category names, and tag names into one big search string.
+ * - Returns an array of matching post IDs (empty if none found).
+ */
+function cpg_get_related_posts_relevanssi($post_id, $results_needed = 5, $post_types = ['post', 'video']) {
+    // If Relevanssi isn't active, we won't get enhanced searching
+    if (!function_exists('relevanssi_do_query')) {
+        return [];
     }
 
+    // 1) Build one big search string
+    $search_terms = [];
+
+    // Post title → split into words
+    $title = get_the_title($post_id);
+    if (!empty($title)) {
+        $title_words  = preg_split('/\s+/', $title);
+        $search_terms = array_merge($search_terms, $title_words);
+    }
+
+    // Category names
+    $category_names = wp_get_post_terms($post_id, 'category', ['fields' => 'names']);
+    if (!empty($category_names)) {
+        $search_terms = array_merge($search_terms, $category_names);
+    }
+
+    // Tag names
+    $tag_names = wp_get_post_terms($post_id, 'post_tag', ['fields' => 'names']);
+    if (!empty($tag_names)) {
+        $search_terms = array_merge($search_terms, $tag_names);
+    }
+
+    // Merge into one string
+    $search_string = implode(' ', $search_terms);
+
+    // 2) Construct a WP_Query with 's' => $search_string
+    $args = [
+        'post_type'      => $post_types,
+        'posts_per_page' => $results_needed,
+        's'              => $search_string,
+        'orderby'        => 'relevance',  // Relevanssi sorts by relevance
+        'order'          => 'DESC',
+        'post__not_in'   => [$post_id],   // Exclude the current post
+    ];
+
+    $query = new WP_Query($args);
+
+    // Explicitly tell Relevanssi to handle this query
+    relevanssi_do_query($query);
+
+    // 3) Collect resulting IDs
+    $related_ids = [];
+    if ($query->have_posts()) {
+        while ($query->have_posts()) {
+            $query->the_post();
+            $related_ids[] = get_the_ID();
+        }
+    }
+    wp_reset_postdata();
+
+    return $related_ids;
+}
+
+// =========================================================================================== 19 jan 25
+/**
+ * Injects the CSS from style.css once per page load.
+ */
+function cpg_inject_css_once() {
     static $css_injected = false;
 
-    // Inject CSS only once per page
     if (!$css_injected) {
         $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
         if (file_exists($css_file_path)) {
@@ -406,290 +475,362 @@ function cpg_register_shortcode($atts) {
         }
         $css_injected = true;
     }
+}
 
+/**
+ * Renders the HTML for a single post item in the grid/list.
+ */
+function cpg_render_post_item($post_id, $atts) {
+    $post_icon = get_post_meta($post_id, '_cpg_post_icon', true);
+
+    ob_start(); ?>
+    <a href="<?php echo get_permalink($post_id); ?>" class="cpg-item">
+        <!-- Thumbnail -->
+        <div class="cpg-image-wrapper">
+            <?php if (has_post_thumbnail($post_id)) : ?>
+                <?php echo get_the_post_thumbnail($post_id, 'large', ['class' => 'featured']); ?>
+            <?php else : ?>
+                <img src="/wp-content/uploads/2024/09/default-thumbnail.png"
+                     class="featured" alt="Fallback Thumbnail" />
+            <?php endif; ?>
+        </div>
+
+        <!-- Icon overlay -->
+        <?php if ($post_icon) : ?>
+            <img src="<?php echo esc_url($post_icon); ?>" class="icon-overlay" alt="Post Icon" />
+        <?php endif; ?>
+
+        <!-- Title & excerpt -->
+        <div class="cpg-content">
+            <h3><?php echo get_the_title($post_id); ?></h3>
+            <?php if (!empty($atts['show_post_excerpt']) && $atts['show_post_excerpt'] === 'true') : ?>
+                <p><?php echo wp_trim_words(get_the_excerpt($post_id), 15, '...'); ?></p>
+            <?php endif; ?>
+        </div>
+    </a>
+    <?php
+    return ob_get_clean();
+}
+
+/**
+ * Handles Scenario 1: Search results (if is_search()).
+ */
+function cpg_render_search_scenario($atts, $paged, $posts_per_page) {
+    $search_query = get_search_query();
+    if (empty($search_query)) {
+        return ''; // No search term? Return nothing special
+    }
+
+    $args = [
+        'post_type'      => ['post', 'video', 'page'],
+        'posts_per_page' => $posts_per_page,
+        's'              => $search_query,
+        'orderby'        => 'relevance',
+        'order'          => 'DESC',
+        'paged'          => $paged,
+    ];
+
+    $query = new WP_Query($args);
+
+    // Let Relevanssi handle it if available
+    if (function_exists('relevanssi_do_query')) {
+        relevanssi_do_query($query);
+    }
+
+    ob_start();
+    if ($query->have_posts()) {
+        $container_class   = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
+        $scrollable_class  = '';
+
+        // If allowscroll is "true" and single line => horizontal scrolling
+        if ($atts['allowscroll'] === 'true' && (int)$atts['number_of_lines'] === 1) {
+            $scrollable_class = ' cpg-scrollable-desktop';
+        }
+        ?>
+        <div class="<?php echo esc_attr($container_class . $scrollable_class); ?>"
+             data-posts-per-line="<?php echo intval($atts['posts_per_line']); ?>"
+             data-current-page="<?php echo intval($paged); ?>"
+             style="--posts-per-line: <?php echo intval($atts['posts_per_line']); ?>;
+                    --max-image-height: <?php echo esc_attr($atts['max_image_height']); ?>;"
+             data-allow-scroll="<?php echo esc_attr($atts['allowscroll']); ?>"
+             data-sortby="<?php echo esc_attr($atts['sortby']); ?>">
+        <?php
+            while ($query->have_posts()) {
+                $query->the_post();
+                echo cpg_render_post_item(get_the_ID(), $atts);
+            }
+        ?>
+        </div>
+        <?php
+        wp_reset_postdata();
+    } else {
+        echo '<p>No search results found.</p>';
+    }
+    return ob_get_clean();
+}
+
+/**
+ * Handles Scenario 2: Related posts (if category="related" on a single post).
+ */
+function cpg_render_related_scenario($atts, $posts_per_page) {
+    // Example: cpg_get_related_posts_relevanssi is your existing function
+    $post_id     = get_the_ID();
+    $related_ids = cpg_get_related_posts_relevanssi($post_id, $posts_per_page, ['post', 'video']);
+
+    ob_start();
+    if (!empty($related_ids)) {
+        $container_class   = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
+        $scrollable_class  = '';
+
+        if ($atts['allowscroll'] === 'true' && (int)$atts['number_of_lines'] === 1) {
+            $scrollable_class = ' cpg-scrollable-desktop';
+        }
+        ?>
+        <div class="<?php echo esc_attr($container_class . $scrollable_class); ?>"
+             data-posts-per-line="<?php echo intval($atts['posts_per_line']); ?>"
+             data-current-page="1"
+             style="--posts-per-line: <?php echo intval($atts['posts_per_line']); ?>;
+                    --max-image-height: <?php echo esc_attr($atts['max_image_height']); ?>;"
+             data-allow-scroll="<?php echo esc_attr($atts['allowscroll']); ?>"
+             data-sortby="<?php echo esc_attr($atts['sortby']); ?>">
+        <?php
+        foreach ($related_ids as $related_id) {
+            setup_postdata(get_post($related_id));
+            echo cpg_render_post_item($related_id, $atts);
+        }
+        ?>
+        </div>
+        <?php
+        wp_reset_postdata();
+    } else {
+        echo '<p>No related posts found.</p>';
+    }
+    return ob_get_clean();
+}
+
+/**
+ * Handles Scenario 3: Normal category/tag display.
+ */
+function cpg_render_normal_scenario($atts, $paged, $posts_per_page) {
+    // Determine order from sortby
+    $orderby = 'post_date';
+    $order   = in_array(strtoupper($atts['order']), ['ASC', 'DESC']) ? strtoupper($atts['order']) : 'DESC';
+
+    // If sortby="random", override
+    if ($atts['sortby'] === 'random') {
+        $orderby = 'rand';
+        // order doesn't matter for 'rand'
+    }
+
+    // Build base WP_Query args
+    $query_args = [
+        'post_type'      => ['post', 'video'],
+        'posts_per_page' => $posts_per_page,
+        'paged'          => $paged,
+        'orderby'        => $orderby,
+        'order'          => $order,
+    ];
+
+    /**
+     * ----------------------------------------------------------------
+     * Check if we need the "category=current" behavior
+     * ----------------------------------------------------------------
+     */
+    if ($atts['category'] === 'current') {
+        // If we are on a category or tag archive
+        if (is_category() || is_tag()) {
+            $queried_object = get_queried_object();
+            if (!empty($queried_object->slug)) {
+                $query_args['tax_query'] = [
+                    [
+                        'taxonomy' => is_category() ? 'category' : 'post_tag',
+                        'field'    => 'slug',
+                        'terms'    => $queried_object->slug,
+                    ],
+                ];
+            }
+        }
+        // Else, if you're *not* on a category or tag page,
+        // you can decide how to handle it. For example, do nothing
+        // or maybe default to the normal logic below.
+
+    } else {
+        // If user provided a category slug (and it's not 'related')
+        if (!empty($atts['category']) && $atts['category'] !== 'related') {
+            $query_args['category_name'] = sanitize_text_field($atts['category']);
+        }
+
+        // If user provided a tag slug
+        if (!empty($atts['tag'])) {
+            $query_args['tag'] = sanitize_text_field($atts['tag']);
+        }
+    }
+
+    // Execute the query
+    $query = new WP_Query($query_args);
+
+    ob_start();
+    if ($query->have_posts()) {
+        $container_class  = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
+        $scrollable_class = '';
+
+        // If allowscroll is "true" + single line => horizontal
+        if ($atts['allowscroll'] === 'true' && (int)$atts['number_of_lines'] === 1) {
+            $scrollable_class = ' cpg-scrollable-desktop';
+        }
+        ?>
+        <div class="<?php echo esc_attr($container_class . $scrollable_class); ?>"
+             data-posts-per-line="<?php echo intval($atts['posts_per_line']); ?>"
+             data-current-page="<?php echo intval($paged); ?>"
+             style="--posts-per-line: <?php echo intval($atts['posts_per_line']); ?>;
+                    --max-image-height: <?php echo esc_attr($atts['max_image_height']); ?>;"
+             data-allow-scroll="<?php echo esc_attr($atts['allowscroll']); ?>"
+             data-sortby="<?php echo esc_attr($atts['sortby']); ?>">
+        <?php
+        while ($query->have_posts()) {
+            $query->the_post();
+            echo cpg_render_post_item(get_the_ID(), $atts);
+        }
+        ?>
+        </div>
+        <?php
+        wp_reset_postdata();
+    } else {
+        echo '<p>No posts found.</p>';
+    }
+    return ob_get_clean();
+}
+
+/**
+ * Main shortcode function: [category_post_grid]
+ * 
+ * Attributes:
+ * - sortby => 'date' or 'random' (default: 'date')
+ * - allowscroll => 'true' or 'false'
+ */
+function cpg_register_shortcode($atts) {
+    global $paged;
+    if (empty($paged)) {
+        $paged = 1;
+    }
+
+    // Inject CSS once
+    cpg_inject_css_once();
+
+    // Parse attributes
     $atts = shortcode_atts(
-        array(
-            'category' => '',
-            'tag' => '',
-            'posts_per_line' => 5,
-            'number_of_lines' => 1,
-            'list_limit' => 6, // For mobile devices
-            'view' => 'grid',
-            'max_image_height' => 'none',
-            'pagination' => false,
+        [
+            'category'          => '',
+            'tag'               => '',
+            'posts_per_line'    => 4,
+            'list_limit'        => 40,
+            'number_of_lines'   => 1,
+            'view'              => 'grid',
+            'max_image_height'  => 'none',
             'show_post_excerpt' => false,
-            'order' => 'DESC',
-        ),
+            'order'             => 'DESC',
+            'allowscroll'       => 'false', 
+            'sortby'            => 'date', 
+        ],
         $atts,
         'category_post_grid'
     );
 
-    // Check if user is on a mobile device
     if (wp_is_mobile()) {
-        $posts_per_page = $atts['list_limit'];
-        $atts['view'] = 'list'; // Force list view on mobile
+        // On mobile, it's a list; use list_limit
+        $posts_per_page = (int) $atts['list_limit'];
+        $atts['view']   = 'list';  // force list view on mobile
     } else {
-        $posts_per_page = $atts['posts_per_line'] * $atts['number_of_lines'];
-    }
-
-    // Related posts
-    if ($atts['category'] === 'related' && is_single()) {
-        $combined_results = array();
-        $results_needed = $atts['posts_per_line'] * $atts['number_of_lines'];
-        $post_id = get_the_ID();
-        $post_categories = wp_get_post_terms($post_id, 'category', array('fields' => 'ids'));
-
-        // Load blacklist words from external file
-        $blacklist_file = plugin_dir_path(__FILE__) . 'search_blacklist.php';
-        $blacklist_words = file_exists($blacklist_file) ? include($blacklist_file) : [];
-
-        // Search query on capitalized title tokens
-        $current_post_title = get_the_title($post_id);
-        if (!empty($current_post_title)) {
-            $tokens = preg_split('/\s+/', $current_post_title);
-            $capitalized_tokens = array_filter($tokens, function($word) use ($blacklist_words) {
-                return ctype_upper(mb_substr($word, 0, 1)) && !in_array(mb_strtolower($word), array_map('mb_strtolower', $blacklist_words));
-            });
-            if (!empty($capitalized_tokens)) {
-                $query_args = array(
-                    'posts_per_page' => $results_needed,
-                    'paged' => $paged,
-                    'post_type' => array('video', 'post'),
-                    'orderby' => 'post_date',
-                    'order' => in_array(strtoupper($atts['order']), ['ASC', 'DESC']) ? strtoupper($atts['order']) : 'DESC',
-                    's' => implode(' ', array_slice($capitalized_tokens, 0, 3)),
-                    'post__not_in' => array($post_id),
-                );
-
-                $query = new WP_Query($query_args);
-                if ($query->have_posts()) {
-                    while ($query->have_posts()) {
-                        $query->the_post();
-                        $combined_results[] = get_the_ID();
-                    }
-                }
-                wp_reset_postdata();
-            }
-        }
-
-        // Search query on first category if not enough results are found
-        if (count($combined_results) < $results_needed && !empty($post_categories)) {
-            $first_category = $post_categories[0];
-            $query_args = array(
-                'posts_per_page' => $results_needed - count($combined_results),
-                'paged' => $paged,
-                'post_type' => array('video', 'post'),
-                'orderby' => 'post_date',
-                'order' => 'DESC',
-                'tax_query' => array(
-                    array(
-                        'taxonomy' => 'category',
-                        'field' => 'id',
-                        'terms' => $first_category,
-                        'operator' => 'IN',
-                    ),
-                ),
-                'post__not_in' => array_merge($combined_results, array($post_id)),
-            );
-
-            $query = new WP_Query($query_args);
-            if ($query->have_posts()) {
-                while ($query->have_posts()) {
-                    $query->the_post();
-                    $combined_results[] = get_the_ID();
-                }
-            }
-            wp_reset_postdata();
-        }
-
-        // Search query on any of the categories if still not enough results are found
-        if (count($combined_results) < $results_needed && !empty($post_categories)) {
-            $query_args = array(
-                'posts_per_page' => $results_needed - count($combined_results),
-                'paged' => $paged,
-                'post_type' => array('video', 'post'),
-                'orderby' => 'post_date',
-                'order' => 'DESC',
-                'tax_query' => array(
-                    array(
-                        'taxonomy' => 'category',
-                        'field' => 'id',
-                        'terms' => $post_categories,
-                        'operator' => 'IN',
-                    ),
-                ),
-                'post__not_in' => array_merge($combined_results, array($post_id)),
-            );
-
-            $query = new WP_Query($query_args);
-            if ($query->have_posts()) {
-                while ($query->have_posts()) {
-                    $query->the_post();
-                    $combined_results[] = get_the_ID();
-                }
-            }
-            wp_reset_postdata();
-        }
-
-        // Display combined results
-        ob_start();
-        if (!empty($combined_results)) {
-            $container_class = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
-            echo '<div class="' . esc_attr($container_class) . '" data-posts-per-line="' . intval($atts['posts_per_line']) . '" style="--posts-per-line: ' . intval($atts['posts_per_line']) . '; --max-image-height: ' . esc_attr($atts['max_image_height']) . ';">';
-
-            foreach ($combined_results as $post_id) {
-                setup_postdata(get_post($post_id));
-                $post_icon = get_post_meta($post_id, '_cpg_post_icon', true);
-
-                // Make the entire post item clickable and add a hover effect
-                echo '<a href="' . get_permalink($post_id) . '" class="cpg-item">';
-
-                // Display the post image
-                echo '<div class="cpg-image-wrapper">';
-                if (has_post_thumbnail($post_id)) {
-                    echo get_the_post_thumbnail($post_id, 'large', ['class' => 'featured']);
-                } else {
-                    echo '<img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" />';
-                }
-                echo '</div>';
-
-                // Display the icon as an overlay in the top left
-                if ($post_icon) {
-                    echo '<img src="' . esc_url($post_icon) . '" class="icon-overlay" alt="Post Icon" />';
-                }
-
-                // Display the post title and optionally the excerpt
-                echo '<div class="cpg-content">';
-                echo '<h3>' . get_the_title($post_id) . '</h3>';
-                if (!empty($atts['show_post_excerpt']) && $atts['show_post_excerpt'] === 'true') {
-                    echo '<p>' . wp_trim_words(get_the_excerpt($post_id), 15, '...') . '</p>';
-                }
-                echo '</div>';
-
-                echo '</a>';
-            }
-
-            echo '</div>';
-            wp_reset_postdata();
+        // If we're on desktop AND allowScroll="true" AND single line:
+        // Show 20 to ensure there's something to scroll horizontally
+        if ($atts['allowscroll'] === 'true' && (int)$atts['number_of_lines'] === 1) {
+            $posts_per_page = 20; // or 12, or 50, etc.
         } else {
-            echo '<p>No posts found.</p>';
+            // Normal logic
+            $posts_per_page = (int) $atts['posts_per_line'] * (int) $atts['number_of_lines'];
         }
-
-        return ob_get_clean();
     }
 
-    // Construct query arguments based on provided attributes
-    $query_args = array(
-        'posts_per_page' => $posts_per_page,
-        'paged' => $paged,
-        'post_type' => array('video', 'post'),
-        'orderby' => 'post_date',
-        'order' => in_array(strtoupper($atts['order']), ['ASC', 'DESC']) ? strtoupper($atts['order']) : 'DESC', // Validate order attribute
-    );
+    // SCENARIO 1: If searching
+    if (is_search()) {
+        return cpg_render_search_scenario($atts, $paged, $posts_per_page);
+    }
 
-    // Check for special category values
-    if ($atts['category'] === 'current') {
-        if (is_search()) {
-            // Display search results if on search page
-            $query_args['s'] = get_search_query();
-        } elseif (is_category() || is_tag()) {
-            // Get current category or tag and filter posts accordingly
-            $queried_object = get_queried_object();
-            $current_slug = $queried_object->slug;
-            $query_args['tax_query'] = array(
-                array(
-                    'taxonomy' => is_category() ? 'category' : 'post_tag',
-                    'field' => 'slug',
-                    'terms' => $current_slug,
-                ),
-            );
-        }
-    } else {
-        // Construct a tax_query to handle category and tag with an OR relation
-        $query_args['tax_query'] = array(
-            'relation' => 'OR',
+    // SCENARIO 2: If category="related"
+    if ($atts['category'] === 'related' && is_single()) {
+        return cpg_render_related_scenario($atts, $posts_per_page);
+    }
+
+    // SCENARIO 3: Normal category/tag
+    return cpg_render_normal_scenario($atts, $paged, $posts_per_page);
+}
+add_shortcode('category_post_grid', 'cpg_register_shortcode');
+
+/**
+ * Enqueue scripts for front-end scrolling / infinite load.
+ */
+function cpg_enqueue_scroll_scripts() {
+    if (!is_admin()) {
+        wp_register_script(
+            'cpg-scroll-script',
+            plugins_url('js/cpg-scroll.js', __FILE__),
+            ['jquery'],
+            '1.0',
+            true
         );
+        wp_enqueue_script('cpg-scroll-script');
 
-        if (!empty($atts['category'])) {
-            $query_args['tax_query'][] = array(
-                'taxonomy' => 'category',
-                'field' => 'slug',
-                'terms' => $atts['category'],
-            );
-        }
-
-        if (!empty($atts['tag'])) {
-            $query_args['tax_query'][] = array(
-                'taxonomy' => 'post_tag',
-                'field' => 'slug',
-                'terms' => $atts['tag'],
-            );
-        }
+        // Localize script to pass data to JS
+        wp_localize_script('cpg-scroll-script', 'cpgScrollData', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+        ]);
     }
+}
+add_action('wp_enqueue_scripts', 'cpg_enqueue_scroll_scripts');
+
+/**
+ * AJAX callback: Load more posts (infinite scroll).
+ */
+function cpg_load_more_posts_ajax() {
+    $next_page       = isset($_POST['next_page']) ? intval($_POST['next_page']) : 2;
+    $container_view  = isset($_POST['container_view']) ? sanitize_text_field($_POST['container_view']) : 'grid';
+    $sort_by         = isset($_POST['sortby']) ? sanitize_text_field($_POST['sortby']) : 'date';
+
+    // Determine the order
+    $orderby = 'post_date';
+    $order   = 'DESC';
+
+    if ($sort_by === 'random') {
+        $orderby = 'rand';
+    }
+
+    $query_args = [
+        'post_type'      => ['post', 'video'],
+        'posts_per_page' => 20, // chunk size
+        'paged'          => $next_page,
+        'orderby'        => $orderby,
+        'order'          => $order,
+    ];
+
+    // If you want category/tag filters, add them from $_POST as well
 
     $query = new WP_Query($query_args);
 
     ob_start();
-
     if ($query->have_posts()) {
-        $container_class = ($atts['view'] === 'list') ? 'cpg-list' : 'cpg-grid';
-        echo '<div class="' . esc_attr($container_class) . '" data-posts-per-line="' . intval($atts['posts_per_line']) . '" style="--posts-per-line: ' . intval($atts['posts_per_line']) . '; --max-image-height: ' . esc_attr($atts['max_image_height']) . ';">';
-
         while ($query->have_posts()) {
             $query->the_post();
-            $post_icon = get_post_meta(get_the_ID(), '_cpg_post_icon', true);
-
-            // Make the entire post item clickable and add a hover effect
-            echo '<a href="' . get_permalink() . '" class="cpg-item">';
-
-            // Display the post image
-            echo '<div class="cpg-image-wrapper">';
-            if (has_post_thumbnail()) {
-                the_post_thumbnail('large', ['class' => 'featured']);
-            } else {
-                echo '<img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" />';
-            }
-            echo '</div>';
-
-            // Display the icon as an overlay in the top left
-            if ($post_icon) {
-                echo '<img src="' . esc_url($post_icon) . '" class="icon-overlay" alt="Post Icon" />';
-            }
-
-            // Display the post title and optionally the excerpt
-            echo '<div class="cpg-content">';
-            echo '<h3>' . get_the_title() . '</h3>';
-            if (!empty($atts['show_post_excerpt']) && $atts['show_post_excerpt'] === 'true') {
-                echo '<p>' . wp_trim_words(get_the_excerpt(), 15, '...') . '</p>';
-            }
-            echo '</div>';
-
-            echo '</a>';
+            // Minimal $atts to pass to cpg_render_post_item
+            $atts = [
+                'show_post_excerpt' => 'false',
+            ];
+            echo cpg_render_post_item(get_the_ID(), $atts);
         }
-
-        echo '</div>';
-
-        // Pagination
-        if ($atts['pagination']) {
-            echo '<div class="cpg-pagination">';
-            echo paginate_links(array(
-                'total' => $query->max_num_pages,
-                'current' => $paged,
-                'prev_text' => __('« Previous'),
-                'next_text' => __('Next »'),
-                'end_size' => 1,
-                'mid_size' => 1,
-            ));
-            echo '</div>';
-        }
-    } else {
-        echo '<p>No posts found.</p>';
+        wp_reset_postdata();
     }
+    $html = ob_get_clean();
 
-    wp_reset_postdata();
-
-    return ob_get_clean();
+    wp_send_json_success(['html' => $html]);
 }
-add_shortcode('category_post_grid', 'cpg_register_shortcode');
-
-
+add_action('wp_ajax_cpg_load_more_posts', 'cpg_load_more_posts_ajax');
+add_action('wp_ajax_nopriv_cpg_load_more_posts', 'cpg_load_more_posts_ajax');

@@ -1,38 +1,42 @@
 /* ----------------------------------
-   1) ORIGINAL GRID & LIST STYLES
+   1) GRID & LIST STYLES
 -------------------------------------*/
 
-/* Grid Layout */
 .cpg-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    justify-content: flex-start; /* Align posts to the left */
+    justify-content: flex-start;
 }
 
 .cpg-grid .cpg-item {
-    flex: 1 0 calc(100% / var(--posts-per-line) - 10px); /* Based on posts per line */
+    --fade-scale: 1;
+    flex: 1 0 calc(100% / var(--posts-per-line) - 10px);
     max-width: calc(100% / var(--posts-per-line) - 10px);
     margin-bottom: 20px;
     text-align: left;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 10px;
     background-color: #fff;
-    /* Removed overflow: hidden; so item can grow in height */
     position: relative;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+
+    transform: scale(var(--fade-scale));
+
+    transition: transform 0.3s ease-in-out,
+                opacity 0.3s ease-in-out,
+                box-shadow 0.3s ease-in-out;
 }
 
 .cpg-grid .cpg-item:hover {
-    transform: scale(1.05);
+    transform: scale(1.05) !important;
+    opacity: 1 !important;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* List Layout */
 .cpg-list {
     display: flex;
     flex-direction: column;
@@ -40,28 +44,31 @@
 }
 
 .cpg-list .cpg-item {
+    --fade-scale: 1;
+
     display: flex;
-    /* Was align-items: center; changed to flex-start so item can grow */
     align-items: flex-start; 
     text-decoration: none;
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     background-color: #fff;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 10px;
-    /* Removed overflow: hidden; let each post’s content expand */
     position: relative;
-    /* Removed line-height: 1.2em; so text can wrap fully as needed */
+
+    transform: scale(var(--fade-scale));
+    transition: transform 0.3s ease-in-out,
+                opacity 0.3s ease-in-out,
+                box-shadow 0.3s ease-in-out;
 }
 
 .cpg-list .cpg-item:hover {
-    transform: scale(1.05);
+    transform: scale(1.05) !important;
+    opacity: 1 !important;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Image wrapper */
 .cpg-image-wrapper {
     width: 100%;
-    overflow: hidden; /* just hides image overflow if it's larger than container */
+    overflow: hidden;
     position: relative;
     max-height: var(--max-image-height);
 }
@@ -81,7 +88,7 @@
 }
 
 .cpg-content {
-    flex: 1; /* let content grow in height freely */
+    flex: 1;
 }
 
 .cpg-content h3 {
@@ -103,7 +110,6 @@
     color: #666;
 }
 
-/* Optional icon overlay */
 .cpg-item img.icon-overlay {
     max-width: 30px;
     height: auto;
@@ -114,7 +120,6 @@
     margin-left: -10px;
 }
 
-/* Responsive: Grid becomes List on Smaller Screens */
 @media screen and (max-width: 768px) {
     .cpg-list {
         flex-direction: column;
@@ -122,7 +127,7 @@
     }
 
     .cpg-list .cpg-item {
-        flex-direction: row; /* Switch to row layout */
+        flex-direction: row;
         width: 100%;
         max-width: 100%;
         margin-bottom: 20px;
@@ -142,90 +147,87 @@
     }
 }
 
-
 /* ----------------------------------
    2) SCROLLABLE CONTAINER + FADES
 -------------------------------------*/
 
-/* Common scrollable container class
-   On desktop => horizontal; on mobile => vertical. */
-.cpg-scrollable-desktop {
+.cpg-scrollable {
     position: relative;
-    /* Hide scrollbars in modern/legacy browsers */
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
 }
-.cpg-scrollable-desktop::-webkit-scrollbar {
+.cpg-scrollable::-webkit-scrollbar {
     display: none;
 }
 
-/* If using infinite-scroll sentinel */
 .cpg-infinite-scroll-sentinel {
     width: 1px;
     height: 1px;
     background: transparent;
 }
 
-/* ---- Desktop (>= 769px): Horizontal Scroll + fade left/right ---- */
-@media (min-width: 769px) {
-    .cpg-scrollable-desktop {
-        flex-wrap: nowrap !important;
-        overflow-x: auto !important;
-        overflow-y: hidden;
-        scroll-behavior: smooth;
-    }
-    .cpg-scrollable-desktop .cpg-item {
-        /* Force items to lay out horizontally */
-        flex: 0 0 calc(100% / var(--posts-per-line) - 10px);
-    }
-
-    /* Fading left/right edges */
-    .cpg-scrollable-desktop::before,
-    .cpg-scrollable-desktop::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        width: 30px; /* fade overlay width */
-        height: 100%;
-        pointer-events: none;
-        z-index: 2;
-    }
-    .cpg-scrollable-desktop::before {
-        left: 0;
-        background: linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%);
-    }
-    .cpg-scrollable-desktop::after {
-        right: 0;
-        background: linear-gradient(to left, #fff 0%, rgba(255,255,255,0) 100%);
-    }
+.cpg-scrollable-desktop {
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;
+    scroll-behavior: smooth;
 }
 
-/* ---- Mobile (<= 768px): Vertical Scroll + fade top/bottom ---- */
-@media (max-width: 768px) {
-    .cpg-scrollable-desktop {
-        flex-direction: column !important;
-        overflow-y: auto !important;
-        overflow-x: hidden;
-        max-height: 500px; /* limit container height on phone to avoid huge page */
-    }
-
-    .cpg-scrollable-desktop::before,
-    .cpg-scrollable-desktop::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        width: 100%;
-        height: 30px; /* fade overlay height */
-        pointer-events: none;
-        z-index: 2;
-    }
-
-    .cpg-scrollable-desktop::before {
-        top: 0;
-        background: linear-gradient(to bottom, #fff 0%, rgba(255,255,255,0) 100%);
-    }
-    .cpg-scrollable-desktop::after {
-        bottom: 0;
-        background: linear-gradient(to top, #fff 0%, rgba(255,255,255,0) 100%);
-    }
+.cpg-scrollable-desktop::before,
+.cpg-scrollable-desktop::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 30px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
 }
+.cpg-scrollable-desktop::before {
+    left: 0;
+    /* background: linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%); */
+}
+.cpg-scrollable-desktop::after {
+    right: 0;
+    /* background: linear-gradient(to left, #fff 0%, rgba(255,255,255,0) 100%); */
+}
+
+.cpg-scrollable-mobile {
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 500px;
+}
+
+.cpg-scrollable-mobile::before,
+.cpg-scrollable-mobile::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    pointer-events: none;
+    z-index: 2;
+}
+.cpg-scrollable-mobile::before {
+    top: 0;
+    background: linear-gradient(to bottom, #fff 0%, rgba(255,255,255,0) 100%);
+}
+.cpg-scrollable-mobile::after {
+    bottom: 0;
+    background: linear-gradient(to top, #fff 0%, rgba(255,255,255,0) 100%);
+}
+
+.cpg-scrollable-desktop::-webkit-scrollbar,
+.cpg-scrollable-mobile::-webkit-scrollbar {
+    display: none;
+}
+

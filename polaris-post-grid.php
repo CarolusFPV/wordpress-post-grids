@@ -441,3 +441,15 @@ function cpg_get_related_posts_relevanssi($post_id, $results_needed = 5, $post_t
 
     return $related_ids;
 }
+
+function cpg_get_cached_related_posts($post_id, $limit = 10) {
+    $cache_key = 'cpg_related_posts_' . $post_id;
+    $related_posts = get_transient($cache_key);
+
+    if ($related_posts === false) {
+        $related_posts = cpg_get_related_posts_relevanssi($post_id, $limit, ['post', 'video']);
+        set_transient($cache_key, $related_posts, HOUR_IN_SECONDS * 6); // Cache for 6 hours
+    }
+
+    return $related_posts;
+}

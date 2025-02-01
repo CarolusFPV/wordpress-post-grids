@@ -159,6 +159,8 @@
       let atts     = $wrapper.data('atts') || {};
       let cacheKey = scenario + ':' + newPage + ':' + JSON.stringify(atts);
 
+      console.log('Pagination clicked:', { scenario, newPage, atts });
+
       if (cpgPaginationData.enableCache && cpgCache[cacheKey]) {
         let $cached = cpgCache[cacheKey];
         $wrapper.replaceWith($cached);
@@ -176,8 +178,10 @@
           atts: atts
         },
         success: function(response) {
-          if (response.success) {
-            let $newWrapper = $(response.data.html);
+          console.log('Pagination AJAX response:', response);
+
+          if (response.success && response.html) {
+            let $newWrapper = $(response.html);
             if (cpgPaginationData.enableCache) {
               cpgCache[cacheKey] = $newWrapper;
             }
@@ -192,6 +196,5 @@
         }
       });
     });
-
   });
 })(jQuery);

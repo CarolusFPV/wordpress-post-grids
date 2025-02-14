@@ -1,17 +1,21 @@
-/* Styles for Grid Layout */
+/* ----------------------------------
+   1) GRID & LIST STYLES
+-------------------------------------*/
+
 .cpg-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    justify-content: flex-start; /* Align posts to the left */
+    justify-content: flex-start;
 }
 
 .cpg-grid .cpg-item {
-    flex: 1 0 calc(100% / var(--posts-per-line) - 10px); /* Calculate width based on posts per line */
+    --fade-scale: 1;
+    flex: 1 0 calc(100% / var(--posts-per-line) - 10px);
     max-width: calc(100% / var(--posts-per-line) - 10px);
     margin-bottom: 20px;
     text-align: left;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 10px;
     background-color: #fff;
     position: relative;
@@ -19,16 +23,18 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    overflow: hidden;
+    transform: scale(var(--fade-scale));
+    transition: transform 0.3s ease-in-out,
+                opacity 0.3s ease-in-out,
+                box-shadow 0.3s ease-in-out;
 }
 
 .cpg-grid .cpg-item:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(1.05) !important;
+    opacity: 1 !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Styles for List Layout */
 .cpg-list {
     display: flex;
     flex-direction: column;
@@ -36,21 +42,24 @@
 }
 
 .cpg-list .cpg-item {
+    --fade-scale: 1;
     display: flex;
-    align-items: center;
+    align-items: flex-start; 
     text-decoration: none;
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     background-color: #fff;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 10px;
-    overflow: hidden;
     position: relative;
-    line-height: 1.2em;
+    transform: scale(var(--fade-scale));
+    transition: transform 0.3s ease-in-out,
+                opacity 0.3s ease-in-out,
+                box-shadow 0.3s ease-in-out;
 }
 
 .cpg-list .cpg-item:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transform: scale(1.05) !important;
+    opacity: 1 !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .cpg-image-wrapper {
@@ -80,17 +89,15 @@
 
 .cpg-content h3 {
     font-size: 14px;
-    /* font-weight: bold; */
     margin-bottom: 5px;
     color: #333;
     padding-bottom: 0px;
     padding-top: 8px;
-    line-height: 1.2em;
+    line-height: 1.2em; 
 }
 
 .cpg-list .cpg-content h3 {
     font-size: 14px;
-    /* font-weight: bold; */
     margin-bottom: 5px;
 }
 
@@ -109,7 +116,6 @@
     margin-left: -10px;
 }
 
-/* Responsive Design: Grid becomes List on Smaller Screens */
 @media screen and (max-width: 768px) {
     .cpg-list {
         flex-direction: column;
@@ -117,11 +123,10 @@
     }
 
     .cpg-list .cpg-item {
-        flex-direction: row; /* Switch to a row layout for list appearance */
-        width: 100%; /* Use full width on mobile */
-        max-width: 100%; /* Override max-width to use full width */
+        flex-direction: row;
+        width: 100%;
+        max-width: 100%;
         margin-bottom: 20px;
-        align-items: center;
     }
 
     .cpg-list .cpg-image-wrapper {
@@ -136,4 +141,182 @@
     .cpg-list .cpg-content p {
         font-size: 12px;
     }
+}
+
+/* ----------------------------------
+   2) SCROLLABLE CONTAINER & CHEVRON ARROWS
+-------------------------------------*/
+
+/* Outer container for scrolling content */
+.cpg-scroll-container {
+    display: flex;
+    align-items: stretch; /* Ensure the buttons stretch to the same height as the inner content */
+    position: relative;   /* Needed for absolute positioning of arrows */
+}
+
+/* Updated Chevron arrow buttons styling */
+.cpg-arrow-prev,
+.cpg-arrow-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.3);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.3s ease, background 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    font-size: 0;  /* Hide any inner text */
+    line-height: 0;
+}
+
+/* Show arrows when hovering over the scroll container */
+.cpg-scroll-container:hover .cpg-arrow-prev,
+.cpg-scroll-container:hover .cpg-arrow-next {
+    opacity: 1;
+}
+
+/* Position left and right arrows */
+.cpg-arrow-prev {
+    left: 10px;
+}
+.cpg-arrow-next {
+    right: 10px;
+}
+
+/* Darken background on hover for arrow buttons */
+.cpg-arrow-prev:hover,
+.cpg-arrow-next:hover {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+/* Create chevron shapes using pseudo-elements */
+.cpg-arrow-prev::before,
+.cpg-arrow-next::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 3px 3px 0;
+    padding: 3px;
+}
+
+.cpg-arrow-prev::before {
+    transform: rotate(135deg);
+}
+
+.cpg-arrow-next::before {
+    transform: rotate(-45deg);
+}
+
+/* Inner container for scrolling content */
+.cpg-scrollable-inner {
+    flex: 1;
+    overflow: hidden; /* Hide overflow outside the inner container */
+    position: relative;
+}
+
+/* Scrollable grid container for desktop */
+.cpg-scrollable-desktop {
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;  /* Force a single row */
+    scroll-behavior: smooth;
+    padding: 0;
+}
+
+/* Ensure the grid items layout correctly */
+.cpg-grid {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+.cpg-scrollable {
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+}
+.cpg-scrollable::-webkit-scrollbar {
+    display: none;
+}
+
+/* Infinite scroll sentinel */
+.cpg-infinite-scroll-sentinel {
+    width: 1px;
+    height: 1px;
+    background: transparent;
+}
+
+.cpg-scrollable-desktop {
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;
+    /* scroll-behavior: smooth; */
+}
+
+/* Optional gradient overlays on desktop scrollable container */
+.cpg-scrollable-desktop::before,
+.cpg-scrollable-desktop::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 30px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+.cpg-scrollable-desktop::before {
+    left: 0;
+    /* background: linear-gradient(to right, #fff 0%, rgba(255,255,255,0) 100%); */
+}
+.cpg-scrollable-desktop::after {
+    right: 0;
+    /* background: linear-gradient(to left, #fff 0%, rgba(255,255,255,0) 100%); */
+}
+
+.cpg-scrollable-mobile {
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 500px;
+}
+
+.cpg-scrollable-mobile::before,
+.cpg-scrollable-mobile::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 30px;
+    pointer-events: none;
+    z-index: 2;
+}
+.cpg-scrollable-mobile::before {
+    top: 0;
+    background: linear-gradient(to bottom, #fff 0%, rgba(255,255,255,0) 100%);
+}
+.cpg-scrollable-mobile::after {
+    bottom: 0;
+    background: linear-gradient(to top, #fff 0%, rgba(255,255,255,0) 100%);
+}
+
+.cpg-scrollable-desktop::-webkit-scrollbar,
+.cpg-scrollable-mobile::-webkit-scrollbar {
+    display: none;
 }

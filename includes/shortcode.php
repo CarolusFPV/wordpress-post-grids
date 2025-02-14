@@ -40,11 +40,11 @@ function cpg_register_shortcode( $atts ) {
     }
 
     // Determine scenario.
-    $scenario = 3;
+    $scenario = "normal";
     if ( is_search() ) {
-        $scenario = 1;
+        $scenario = "search";
     } elseif ( $atts['category'] === 'related' && is_single() ) {
-        $scenario = 2;
+        $scenario = "related";
     }
 
     if ( ! class_exists( 'CPG_Renderer' ) ) {
@@ -52,20 +52,20 @@ function cpg_register_shortcode( $atts ) {
     }
     $renderer = new CPG_Renderer();
 
-    if ( $scenario === 1 ) {
+    if ( $scenario === "search" ) {
         $inner_html = $renderer->render_search_scenario( $atts, $paged, $posts_per_page );
-    } elseif ( $scenario === 2 ) {
+    } elseif ( $scenario === "related" ) {
         $inner_html = $renderer->render_related_scenario( $atts, $posts_per_page, $paged );
     } else {
         $inner_html = $renderer->render_normal_scenario( $atts, $paged, $posts_per_page );
     }
 
-    // Build the outer wrapper. (You can adjust the data-scenario as needed.)
+    // Build the outer wrapper.
     $output  = '<div class="cpg-wrapper" data-scenario="' . esc_attr( $scenario ) . '" data-atts="' . esc_attr( wp_json_encode( $atts ) ) . '">';
     $output .= $inner_html;
     $output .= '</div>';
 
-    // Optionally add prefetch script if enabled.
+    // Add prefetch script
     if ( $atts['prefetch'] === 'true' ) {
         $output .= '
         <script>

@@ -1,9 +1,9 @@
 <?php
-if (!defined('ABSPATH')) {
+if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-add_action('polaris_core_register_addons', 'register_polaris_post_grid_tabbed_menu');
+add_action( 'polaris_core_register_addons', 'register_polaris_post_grid_tabbed_menu' );
 
 function register_polaris_post_grid_tabbed_menu() {
     add_submenu_page(
@@ -16,33 +16,36 @@ function register_polaris_post_grid_tabbed_menu() {
     );
 }
 
-add_action('admin_enqueue_scripts', 'cpg_enqueue_admin_scripts');
-add_action('add_meta_boxes', 'cpg_add_icon_meta_box');
-add_action('save_post', 'cpg_save_post_icon_meta');
-add_action('quick_edit_custom_box', 'cpg_quick_edit_icon_box', 10, 2);
-add_action('save_post', 'cpg_save_quick_edit_icon_meta');
+add_action( 'admin_enqueue_scripts', 'cpg_enqueue_admin_scripts' );
+add_action( 'add_meta_boxes', 'cpg_add_icon_meta_box' );
+add_action( 'save_post', 'cpg_save_post_icon_meta' );
+add_action( 'quick_edit_custom_box', 'cpg_quick_edit_icon_box', 10, 2 );
+add_action( 'save_post', 'cpg_save_quick_edit_icon_meta' );
 
 function cpg_tabbed_settings_page() {
-    $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'generator';
+    $current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'generator';
     ?>
     <div class="wrap">
         <h1>Post Grid Settings</h1>
         <h2 class="nav-tab-wrapper">
             <a href="?page=polaris-post-grid-settings&tab=generator" class="nav-tab <?php echo $current_tab === 'generator' ? 'nav-tab-active' : ''; ?>">Shortcode Generator</a>
-            <a href="?page=polaris-post-grid-settings&tab=post_icons" class="nav-tab <?php echo $current_tab === 'images' ? 'nav-tab-active' : ''; ?>">Post Icons</a>
+            <a href="?page=polaris-post-grid-settings&tab=post_icons" class="nav-tab <?php echo $current_tab === 'post_icons' ? 'nav-tab-active' : ''; ?>">Post Icons</a>
             <a href="?page=polaris-post-grid-settings&tab=css" class="nav-tab <?php echo $current_tab === 'css' ? 'nav-tab-active' : ''; ?>">Custom CSS</a>
             <a href="?page=polaris-post-grid-settings&tab=cache" class="nav-tab <?php echo $current_tab === 'cache' ? 'nav-tab-active' : ''; ?>">Cache</a>
+            <a href="?page=polaris-post-grid-settings&tab=templates" class="nav-tab <?php echo $current_tab === 'templates' ? 'nav-tab-active' : ''; ?>">Templates</a>
         </h2>
 
         <?php
-        if ($current_tab === 'generator') {
+        if ( $current_tab === 'generator' ) {
             cpg_shortcode_generator_page();
-        } elseif ($current_tab === 'post_icons') {
+        } elseif ( $current_tab === 'post_icons' ) {
             cpg_post_icons_page();
-        } elseif ($current_tab === 'css') {
+        } elseif ( $current_tab === 'css' ) {
             cpg_custom_css_page();
-        } elseif ($current_tab === 'cache') {
+        } elseif ( $current_tab === 'cache' ) {
             cpg_cache_settings_page();
+        } elseif ( $current_tab === 'templates' ) {
+            cpg_templates_page();
         }
         ?>
     </div>
@@ -343,6 +346,44 @@ function cpg_cache_settings_page() {
     <?php
 }
 
+function cpg_templates_page() {
+    // Process form submission to update the templates
+    if ( $_SERVER['REQUEST_METHOD'] == 'POST' ) {
+        $grid_template = isset( $_POST['cpg_post_grid_item_template'] ) ? wp_unslash( $_POST['cpg_post_grid_item_template'] ) : '';
+        $list_template = isset( $_POST['cpg_post_list_item_template'] ) ? wp_unslash( $_POST['cpg_post_list_item_template'] ) : '';
+        update_option( 'cpg_post_grid_item_template', $grid_template );
+        update_option( 'cpg_post_list_item_template', $list_template );
+        echo '<div class="notice notice-success"><p>Templates updated successfully.</p></div>';
+    }
+
+    // Retrieve current templates; default values provided if none exist.
+    $grid_template = get_option( 'cpg_post_grid_item_template', '<div class="post-grid-item">{{post_title}}</div>' );
+    $list_template = get_option( 'cpg_post_list_item_template', '<li class="post-list-item">{{post_title}}</li>' );
+    ?>
+    <div class="wrap">
+        <h1>Templates</h1>
+        <p>Create and manage the HTML templates for your post grids.<br>Placeholders to use: <code>{{post_title}}</code></p>
+        <form method="post">
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row"><label for="cpg_post_grid_item_template">Post Grid Item Template</label></th>
+                    <td>
+                        <textarea id="cpg_post_grid_item_template" name="cpg_post_grid_item_template" rows="10" cols="100" style="width: 100%;"><?php echo esc_textarea( $grid_template ); ?></textarea>
+                    </td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="cpg_post_list_item_template">Post List Item Template</label></th>
+                    <td>
+                        <textarea id="cpg_post_list_item_template" name="cpg_post_list_item_template" rows="10" cols="100" style="width: 100%;"><?php echo esc_textarea( $list_template ); ?></textarea>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button( 'Save Templates' ); ?>
+        </form>
+    </div>
+    <?php
+}
+
 function cpg_enqueue_admin_scripts() {
     wp_enqueue_media();
     ?>
@@ -396,4 +437,4 @@ function cpg_enqueue_admin_scripts() {
     </script>
     <?php
 }
-add_action('admin_enqueue_scripts', 'cpg_enqueue_admin_scripts');
+add_action( 'admin_enqueue_scripts', 'cpg_enqueue_admin_scripts' );

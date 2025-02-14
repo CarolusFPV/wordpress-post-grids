@@ -1,7 +1,6 @@
 (function($) {
   $(document).ready(function() {
 
-<<<<<<< HEAD
     // ARROW BUTTON SCROLLING FOR DESKTOP CONTAINERS WITH CUMULATIVE SCROLLING
     $('.cpg-scroll-container').each(function() {
       var $container = $(this);
@@ -33,27 +32,58 @@
       });
     });
     
-    // WHEEL SCROLL
-=======
-    // 1) WHEEL SCROLL
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
-    $('.cpg-scrollable-desktop, .cpg-scrollable-mobile').on('wheel', function(e) {
+     // WHEEL SCROLL WITH SNAP
+     $('.cpg-scrollable-desktop, .cpg-scrollable-mobile').on('wheel', function(e) {
       e.preventDefault();
-      const $container = $(this);
-      let isDesktop = $container.hasClass('cpg-scrollable-desktop');
+      var $container = $(this);
+      var isDesktop = $container.hasClass('cpg-scrollable-desktop');
+
+      // Scroll normally based on deltaY.
       if (isDesktop) {
-        this.scrollLeft += e.originalEvent.deltaY * 3;
+        $container.scrollLeft($container.scrollLeft() + e.originalEvent.deltaY * 3);
       } else {
-        this.scrollTop += e.originalEvent.deltaY * 3;
+        $container.scrollTop($container.scrollTop() + e.originalEvent.deltaY * 3);
       }
+      
+      // Clear any existing timeout and start a new one.
+      clearTimeout(wheelTimeout);
+      wheelTimeout = setTimeout(function() {
+        snapToClosest($container, isDesktop);
+      }, 100); // adjust delay as needed
     });
-<<<<<<< HEAD
+
+    // Snap to the closest post so that none are half visible.
+    function snapToClosest($container, isDesktop) {
+      // Get current scroll position.
+      var currentScroll = isDesktop ? $container.scrollLeft() : $container.scrollTop();
+      var closest = null;
+      var closestDiff = Infinity;
+      
+      // Iterate over each post item.
+      $container.find('.cpg-item').each(function() {
+        var $item = $(this);
+        // Calculate the item’s offset relative to the container.
+        var itemPos = isDesktop 
+          ? ($item.offset().left - $container.offset().left + $container.scrollLeft())
+          : ($item.offset().top - $container.offset().top + $container.scrollTop());
+        var diff = Math.abs(itemPos - currentScroll);
+        if (diff < closestDiff) {
+          closestDiff = diff;
+          closest = itemPos;
+        }
+      });
+      
+      // Animate to the closest snap point if found.
+      if (closest !== null) {
+        if (isDesktop) {
+          $container.animate({ scrollLeft: closest }, 300);
+        } else {
+          $container.animate({ scrollTop: closest }, 300);
+        }
+      }
+    }
     
     // Fade & Scale Effect
-=======
-
-    // 2) Fade & Scale
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
     function applyEdgeFade($container) {
       let isDesktop = $container.hasClass('cpg-scrollable-desktop');
       let visibleSize  = isDesktop ? $container.innerWidth() : $container.innerHeight();
@@ -104,13 +134,8 @@
         });
       });
     }
-<<<<<<< HEAD
     
     // INFINITE SCROLL
-=======
-
-    // 3) INFINITE SCROLL
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
     $('.cpg-scrollable-desktop, .cpg-scrollable-mobile').each(function() {
       const $container = $(this);
       let currentPage = parseInt($container.data('current-page'), 10) || 1;
@@ -127,13 +152,7 @@
 
       let observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
-<<<<<<< HEAD
           if (entry.isIntersecting) {
-=======
-          //console.log('Intersection entry:', entry);
-          if (entry.isIntersecting) {
-            //console.log('Sentinel is intersecting, load next page');
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
             observer.unobserve(entry.target);
             loadNextPage();
           }
@@ -167,32 +186,16 @@
           },
           success: function(response) {
             if (response.success) {
-<<<<<<< HEAD
               let $newWrapper = $(response.data.html);
               let $newContainer = $newWrapper.find('.cpg-scrollable-desktop, .cpg-scrollable-mobile').first();
               let $newItems = $newContainer.find('.cpg-item');
-=======
-              let $newWrapper   = $(response.data.html);
-              let $newContainer = $newWrapper.find('.cpg-scrollable-desktop, .cpg-scrollable-mobile').first();
-              let $newItems     = $newContainer.find('.cpg-item');
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 
               if ($newItems.length) {
                 $newContainer.find('.cpg-infinite-scroll-sentinel').remove();
                 $container.append($newItems);
-<<<<<<< HEAD
                 $container.append(sentinel);
                 observer.observe(sentinel);
                 applyEdgeFade($container);
-=======
-
-                $container.append(sentinel);
-                observer.observe(sentinel);
-
-                applyEdgeFade($container);
-              } else {
-                //console.log('No more items.');
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
               }
             } else {
               console.warn('Infinite scroll: success=false');
@@ -204,21 +207,12 @@
         });
       }
     });
-<<<<<<< HEAD
     
     // CLICKABLE PAGINATION
     let cpgCache = {};
     $(document).on('click', '.cpg-pagination a', function(e) {
       e.preventDefault();
       let $link = $(this);
-=======
-
-    // 4) CLICKABLE PAGINATION
-    let cpgCache = {};
-    $(document).on('click', '.cpg-pagination a', function(e) {
-      e.preventDefault();
-      let $link   = $(this);
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
       let newPage = $link.data('page');
       if (!newPage) return;
 
@@ -226,17 +220,9 @@
       if (!$wrapper.length) return;
 
       let scenario = $wrapper.data('scenario') || 3;
-<<<<<<< HEAD
       let atts = $wrapper.data('atts') || {};
       let cacheKey = scenario + ':' + newPage + ':' + JSON.stringify(atts);
 
-=======
-      let atts     = $wrapper.data('atts') || {};
-      let cacheKey = scenario + ':' + newPage + ':' + JSON.stringify(atts);
-
-      console.log('Pagination clicked:', { scenario, newPage, atts });
-
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
       if (cpgPaginationData.enableCache && cpgCache[cacheKey]) {
         let $cached = cpgCache[cacheKey];
         $wrapper.replaceWith($cached);
@@ -254,15 +240,8 @@
           atts: atts
         },
         success: function(response) {
-<<<<<<< HEAD
           if (response.success) {
             let $newWrapper = $(response.data.html);
-=======
-          console.log('Pagination AJAX response:', response);
-
-          if (response.success && response.html) {
-            let $newWrapper = $(response.html);
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
             if (cpgPaginationData.enableCache) {
               cpgCache[cacheKey] = $newWrapper;
             }
@@ -277,9 +256,6 @@
         }
       });
     });
-<<<<<<< HEAD
     
-=======
->>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
   });
 })(jQuery);

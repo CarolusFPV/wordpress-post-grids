@@ -23,7 +23,13 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+<<<<<<< HEAD
     transform: scale(var(--fade-scale));
+=======
+
+    transform: scale(var(--fade-scale));
+
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
     transition: transform 0.3s ease-in-out,
                 opacity 0.3s ease-in-out,
                 box-shadow 0.3s ease-in-out;
@@ -43,6 +49,10 @@
 
 .cpg-list .cpg-item {
     --fade-scale: 1;
+<<<<<<< HEAD
+=======
+
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
     display: flex;
     align-items: flex-start; 
     text-decoration: none;
@@ -50,6 +60,10 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     padding: 10px;
     position: relative;
+<<<<<<< HEAD
+=======
+
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
     transform: scale(var(--fade-scale));
     transition: transform 0.3s ease-in-out,
                 opacity 0.3s ease-in-out,
@@ -144,6 +158,7 @@
 }
 
 /* ----------------------------------
+<<<<<<< HEAD
    2) SCROLLABLE CONTAINER & CHEVRON ARROWS
 -------------------------------------*/
 
@@ -239,6 +254,11 @@
     justify-content: flex-start;
 }
 
+=======
+   2) SCROLLABLE CONTAINER + FADES
+-------------------------------------*/
+
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 .cpg-scrollable {
     position: relative;
     scrollbar-width: none;
@@ -249,7 +269,10 @@
     display: none;
 }
 
+<<<<<<< HEAD
 /* Infinite scroll sentinel */
+=======
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 .cpg-infinite-scroll-sentinel {
     width: 1px;
     height: 1px;
@@ -264,10 +287,16 @@
     overflow-x: auto;
     overflow-y: hidden;
     flex-wrap: nowrap !important;
+<<<<<<< HEAD
     /* scroll-behavior: smooth; */
 }
 
 /* Optional gradient overlays on desktop scrollable container */
+=======
+    scroll-behavior: smooth;
+}
+
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 .cpg-scrollable-desktop::before,
 .cpg-scrollable-desktop::after {
     content: "";
@@ -320,3 +349,7 @@
 .cpg-scrollable-mobile::-webkit-scrollbar {
     display: none;
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c

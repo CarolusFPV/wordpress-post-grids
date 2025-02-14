@@ -2,14 +2,26 @@
 /*
 Plugin Name: Polaris Post Grids
 Description: Display posts in a grid or list.
+<<<<<<< HEAD
 Version: 4.0
+=======
+Version: 2.7
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 Author: Casper Molhoek
 Author URI: https://www.polarisit.nl
 Plugin URI: https://www.polarisit.nl/post-grids
+
+
+Todo:
+- Option to disable jump to top when clicking pagination
+- trending option
 */
 
 require_once plugin_dir_path(__FILE__) . 'shortcode.php';
+<<<<<<< HEAD
 add_image_size('cpg-grid-thumb', 240, 200, true);
+=======
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 
 add_action('polaris_core_register_addons', 'register_polaris_post_grid_tabbed_menu');
 
@@ -302,6 +314,7 @@ function cpg_custom_css_page() {
     <?php
 }
 
+<<<<<<< HEAD
 function cpg_cache_settings_page() {
     // Process form submission for cache settings
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -354,6 +367,8 @@ function cpg_cache_settings_page() {
 }
 
 
+=======
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 function cpg_enqueue_admin_scripts() {
     wp_enqueue_media();
     ?>
@@ -543,6 +558,7 @@ function cpg_get_related_posts_relevanssi($post_id, $results_needed = 5, $post_t
 function cpg_get_cached_related_posts($post_id, $limit = 10) {
     $cache_key = 'cpg_related_posts_' . $post_id;
     $related_posts = get_transient($cache_key);
+<<<<<<< HEAD
 
     if ($related_posts === false) {
         $related_posts = cpg_get_related_posts_relevanssi($post_id, $limit, ['post', 'video']);
@@ -581,4 +597,13 @@ function cpg_invalidate_cache_on_new_post($post_id, $post) {
     cpg_clear_all_cache();
 }
 add_action('save_post', 'cpg_invalidate_cache_on_new_post', 10, 2);
+=======
+>>>>>>> f10bc4c4d9e5c1c72e038d016a0b5b4ca9afd33c
 
+    if ($related_posts === false) {
+        $related_posts = cpg_get_related_posts_relevanssi($post_id, $limit, ['post', 'video']);
+        set_transient($cache_key, $related_posts, HOUR_IN_SECONDS * 6); // Cache for 6 hours
+    }
+
+    return $related_posts;
+}

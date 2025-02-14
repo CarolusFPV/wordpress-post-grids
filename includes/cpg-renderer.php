@@ -200,36 +200,91 @@ class CPG_Renderer {
     }
 
     /**
-     * Returns the HTML for a single post item.
+     * Returns the HTML for a single post item using admin-defined templates.
      *
      * @param int   $post_id
      * @param array $atts
      * @return string
      */
     private function get_post_item_html( $post_id, $atts ) {
-        $post_icon = get_post_meta( $post_id, '_cpg_post_icon', true );
-        ob_start();
-        ?>
-        <a href="<?php echo get_permalink( $post_id ); ?>" class="cpg-item">
+        // Determine which template to use based on the view type.
+        $view = isset( $atts['view'] ) ? $atts['view'] : 'grid';
+        if ( $view === 'list' ) {
+            $template = get_option( 'cpg_post_list_item_template' );
+            if ( empty( $template ) ) {
+                $template = $this->get_default_list_template();
+            }
+        } else {
+            $template = get_option( 'cpg_post_grid_item_template' );
+            if ( empty( $template ) ) {
+                $template = $this->get_default_grid_template();
+            }
+        }
+
+        // Prepare dynamic content.
+        $permalink = get_permalink( $post_id );
+        if ( has_post_thumbnail( $post_id ) ) {
+            $thumbnail = get_the_post_thumbnail( $post_id, 'cpg-grid-thumb', [ 'class' => 'featured', 'loading' => 'lazy' ] );
+        } else {
+            $thumbnail = '<img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" width="240" height="200" loading="lazy" />';
+        }
+
+        $post_icon_meta = get_post_meta( $post_id, '_cpg_post_icon', true );
+        if ( $post_icon_meta ) {
+            $post_icon = '<img src="' . esc_url( $post_icon_meta ) . '" class="icon-overlay" alt="Post Icon">';
+        } else {
+            $post_icon = '';
+        }
+
+        $title = get_the_title( $post_id );
+        if ( ! empty( $atts['show_post_excerpt'] ) && $atts['show_post_excerpt'] === 'true' ) {
+            $excerpt = '<p>' . wp_trim_words( get_the_excerpt( $post_id ), 15, '...' ) . '</p>';
+        } else {
+            $excerpt = '';
+        }
+
+        // Replace placeholders with dynamic content.
+        $placeholders = [ '{{permalink}}', '{{thumbnail}}', '{{post_icon}}', '{{title}}', '{{excerpt}}' ];
+        $replacements = [ $permalink, $thumbnail, $post_icon, $title, $excerpt ];
+        $html = str_replace( $placeholders, $replacements, $template );
+
+        return $html;
+    }
+
+    /**
+     * Returns the default grid item template.
+     *
+     * @return string
+     */
+    private function get_default_grid_template() {
+        return '<a href="{{permalink}}" class="cpg-item">
             <div class="cpg-image-wrapper">
-                <?php if ( has_post_thumbnail( $post_id ) ) : ?>
-                    <?php echo get_the_post_thumbnail( $post_id, 'cpg-grid-thumb', [ 'class' => 'featured', 'loading' => 'lazy' ] ); ?>
-                <?php else : ?>
-                    <img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" width="240" height="200" loading="lazy" />
-                <?php endif; ?>
+                {{thumbnail}}
             </div>
-            <?php if ( $post_icon ) : ?>
-                <img src="<?php echo esc_url( $post_icon ); ?>" class="icon-overlay" alt="Post Icon">
-            <?php endif; ?>
+            {{post_icon}}
             <div class="cpg-content">
-                <h3><?php echo get_the_title( $post_id ); ?></h3>
-                <?php if ( ! empty( $atts['show_post_excerpt'] ) && $atts['show_post_excerpt'] === 'true' ) : ?>
-                    <p><?php echo wp_trim_words( get_the_excerpt( $post_id ), 15, '...' ); ?></p>
-                <?php endif; ?>
+                <h3>{{title}}</h3>
+                {{excerpt}}
             </div>
-        </a>
-        <?php
-        return ob_get_clean();
+        </a>';
+        }
+
+    /**
+     * Returns the default list item template.
+     *
+     * @return string
+     */
+    private function get_default_list_template() {
+        return '<a href="{{permalink}}" class="cpg-item">
+    <div class="cpg-image-wrapper">
+        {{thumbnail}}
+    </div>
+    {{post_icon}}
+    <div class="cpg-content">
+        <h3>{{title}}</h3>
+        {{excerpt}}
+    </div>
+</a>';
     }
 
     /**

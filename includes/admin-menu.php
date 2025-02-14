@@ -347,6 +347,27 @@ function cpg_cache_settings_page() {
 }
 
 function cpg_templates_page() {
+    $default_grid_template = '<a href="{{permalink}}" class="cpg-item">
+        <div class="cpg-image-wrapper">
+            {{thumbnail}}
+        </div>
+        {{post_icon}}
+        <div class="cpg-content">
+            <h3>{{title}}</h3>
+            {{excerpt}}
+        </div>
+    </a>';
+
+    $default_list_template = '<a href="{{permalink}}" class="cpg-item">
+        <div class="cpg-image-wrapper">
+            {{thumbnail}}
+        </div>
+        {{post_icon}}
+        <div class="cpg-content">
+            <h3>{{title}}</h3>
+            {{excerpt}}
+        </div>
+    </a>';
     // Process form submission to update the templates
     if ( $_SERVER['REQUEST_METHOD'] == 'POST' ) {
         $grid_template = isset( $_POST['cpg_post_grid_item_template'] ) ? wp_unslash( $_POST['cpg_post_grid_item_template'] ) : '';
@@ -356,9 +377,9 @@ function cpg_templates_page() {
         echo '<div class="notice notice-success"><p>Templates updated successfully.</p></div>';
     }
 
-    // Retrieve current templates; default values provided if none exist.
-    $grid_template = get_option( 'cpg_post_grid_item_template', '<div class="post-grid-item">{{post_title}}</div>' );
-    $list_template = get_option( 'cpg_post_list_item_template', '<li class="post-list-item">{{post_title}}</li>' );
+    // Retrieve current templates
+    $grid_template = get_option('cpg_post_grid_item_template', $default_grid_template);
+    $list_template = get_option('cpg_post_list_item_template', $default_list_template);
     ?>
     <div class="wrap">
         <h1>Templates</h1>

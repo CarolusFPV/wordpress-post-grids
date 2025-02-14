@@ -221,12 +221,12 @@ class CPG_Renderer {
             }
         }
 
-        // Prepare dynamic content.
         $permalink = get_permalink( $post_id );
         if ( has_post_thumbnail( $post_id ) ) {
             $thumbnail = get_the_post_thumbnail( $post_id, 'cpg-grid-thumb', [ 'class' => 'featured', 'loading' => 'lazy' ] );
         } else {
-            $thumbnail = '<img src="/wp-content/uploads/2024/09/default-thumbnail.png" class="featured" alt="Fallback Thumbnail" width="240" height="200" loading="lazy" />';
+            $default_thumb = get_option( 'cpg_default_thumbnail', '/wp-content/uploads/2024/09/default-thumbnail.png' );
+            $thumbnail = '<img src="' . esc_url( $default_thumb ) . '" class="featured" alt="Fallback Thumbnail" width="240" height="200" loading="lazy" />';
         }
 
         $post_icon_meta = get_post_meta( $post_id, '_cpg_post_icon', true );

@@ -28,6 +28,7 @@ function cpg_add_icon_meta_box() {
         'default'
     );
 }
+add_action( 'add_meta_boxes', 'cpg_add_icon_meta_box' );
 
 function cpg_post_icon_meta_box_callback($post) {
     wp_nonce_field('cpg_save_post_icon_meta', 'cpg_post_icon_meta_nonce');
@@ -63,6 +64,7 @@ function cpg_save_post_icon_meta($post_id) {
         update_post_meta($post_id, '_cpg_post_icon', $icon_url);
     }
 }
+add_action( 'save_post', 'cpg_save_post_icon_meta' );
 
 function cpg_quick_edit_icon_box($column_name, $post_type) {
     if ($column_name != 'title' || $post_type != 'post') {
@@ -87,6 +89,7 @@ function cpg_quick_edit_icon_box($column_name, $post_type) {
     </fieldset>
     <?php
 }
+add_action( 'quick_edit_custom_box', 'cpg_quick_edit_icon_box', 10, 2 );
 
 function cpg_save_quick_edit_icon_meta($post_id) {
     if (!current_user_can('edit_post', $post_id)) {
@@ -98,6 +101,7 @@ function cpg_save_quick_edit_icon_meta($post_id) {
         update_post_meta($post_id, '_cpg_post_icon', $icon_url);
     }
 }
+add_action( 'save_post', 'cpg_save_quick_edit_icon_meta' );
 
 // ============================================
 //  Caching

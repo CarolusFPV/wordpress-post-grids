@@ -4,7 +4,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 add_action( 'polaris_core_register_addons', 'register_polaris_post_grid_tabbed_menu' );
-
 function register_polaris_post_grid_tabbed_menu() {
     add_submenu_page(
         'polaris-core',
@@ -16,38 +15,217 @@ function register_polaris_post_grid_tabbed_menu() {
     );
 }
 
-add_action( 'admin_enqueue_scripts', 'cpg_enqueue_admin_scripts' );
-add_action( 'add_meta_boxes', 'cpg_add_icon_meta_box' );
-add_action( 'save_post', 'cpg_save_post_icon_meta' );
-add_action( 'quick_edit_custom_box', 'cpg_quick_edit_icon_box', 10, 2 );
-add_action( 'save_post', 'cpg_save_quick_edit_icon_meta' );
-
 function cpg_tabbed_settings_page() {
-    $current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'generator';
+    $current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'settings';
     ?>
     <div class="wrap">
         <h1>Post Grid Settings</h1>
         <h2 class="nav-tab-wrapper">
-            <a href="?page=polaris-post-grid-settings&tab=generator" class="nav-tab <?php echo $current_tab === 'generator' ? 'nav-tab-active' : ''; ?>">Shortcode Generator</a>
+            <a href="?page=polaris-post-grid-settings&tab=settings" class="nav-tab <?php echo $current_tab === 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
             <a href="?page=polaris-post-grid-settings&tab=post_icons" class="nav-tab <?php echo $current_tab === 'post_icons' ? 'nav-tab-active' : ''; ?>">Post Icons</a>
-            <a href="?page=polaris-post-grid-settings&tab=css" class="nav-tab <?php echo $current_tab === 'css' ? 'nav-tab-active' : ''; ?>">Custom CSS</a>
             <a href="?page=polaris-post-grid-settings&tab=cache" class="nav-tab <?php echo $current_tab === 'cache' ? 'nav-tab-active' : ''; ?>">Cache</a>
+            <a href="?page=polaris-post-grid-settings&tab=css" class="nav-tab <?php echo $current_tab === 'css' ? 'nav-tab-active' : ''; ?>">CSS</a>
             <a href="?page=polaris-post-grid-settings&tab=templates" class="nav-tab <?php echo $current_tab === 'templates' ? 'nav-tab-active' : ''; ?>">Templates</a>
+            <a href="?page=polaris-post-grid-settings&tab=generator" class="nav-tab <?php echo $current_tab === 'generator' ? 'nav-tab-active' : ''; ?>">Generator</a>
         </h2>
-
         <?php
-        if ( $current_tab === 'generator' ) {
-            cpg_shortcode_generator_page();
+        if ( $current_tab === 'settings' ) {
+            cpg_settings_page();
         } elseif ( $current_tab === 'post_icons' ) {
             cpg_post_icons_page();
-        } elseif ( $current_tab === 'css' ) {
-            cpg_custom_css_page();
         } elseif ( $current_tab === 'cache' ) {
             cpg_cache_settings_page();
+        } elseif ( $current_tab === 'css' ) {
+            cpg_custom_css_page();
         } elseif ( $current_tab === 'templates' ) {
             cpg_templates_page();
+        } elseif ( $current_tab === 'generator' ) {
+            cpg_shortcode_generator_page();
         }
         ?>
+    </div>
+    <?php
+}
+
+add_action( 'admin_enqueue_scripts', 'cpg_enqueue_admin_scripts' );
+function cpg_enqueue_admin_scripts() {
+    wp_enqueue_media();
+    ?>
+    <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        var uploadButtons = document.querySelectorAll('.upload_image_button');
+        var customUploader;
+        uploadButtons.forEach(function(button) {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                var container = document.getElementById('cpg_image_container');
+                if ( customUploader ) {
+                    customUploader.open();
+                    return;
+                }
+                customUploader = wp.media({
+                    title: 'Choose Image',
+                    button: {
+                        text: 'Choose Image'
+                    },
+                    multiple: true
+                });
+                customUploader.on('select', function() {
+                    var attachments = customUploader.state().get('selection').toArray();
+                    attachments.forEach(function(attachment) {
+                        var imageUrl = attachment.attributes.url;
+                        var imageHtml = document.createElement('div');
+                        imageHtml.className = 'cpg-image-item';
+                        imageHtml.innerHTML = '<img src="' + imageUrl + '" style="max-width: 100px; height: auto; margin-right: 10px;" />' +
+                                              '<input type="hidden" name="cpg_image_library[]" value="' + imageUrl + '" />' +
+                                              '<button type="button" class="remove_image_button button">Remove</button>';
+                        container.appendChild(imageHtml);
+                    });
+                });
+                customUploader.open();
+            });
+        });
+        document.addEventListener('click', function(e) {
+            if ( e.target && e.target.classList.contains('remove_image_button') ) {
+                e.preventDefault();
+                e.target.closest('.cpg-image-item').remove();
+            }
+        });
+
+        // --- Default Thumbnail Uploader (Settings Tab) ---
+        var uploadDefaultButton = document.getElementById('upload_default_thumbnail_button');
+        if ( uploadDefaultButton ) {
+            var defaultUploader;
+            uploadDefaultButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                if ( defaultUploader ) {
+                    defaultUploader.open();
+                    return;
+                }
+                defaultUploader = wp.media({
+                    title: 'Choose Default Thumbnail',
+                    button: {
+                        text: 'Choose Image'
+                    },
+                    multiple: false
+                });
+                defaultUploader.on('select', function() {
+                    var attachment = defaultUploader.state().get('selection').first().toJSON();
+                    document.getElementById('cpg_default_thumbnail').value = attachment.url;
+                    // Update preview image in the container.
+                    var container = document.getElementById('cpg_default_thumbnail_container');
+                    var img = container.querySelector('img');
+                    if ( img ) {
+                        img.src = attachment.url;
+                    } else {
+                        img = document.createElement('img');
+                        img.src = attachment.url;
+                        img.style.maxWidth = '150px';
+                        img.style.height = 'auto';
+                        img.style.display = 'block';
+                        img.style.marginBottom = '10px';
+                        container.insertBefore(img, uploadDefaultButton);
+                    }
+                });
+                defaultUploader.open();
+            });
+        }
+
+        // --- Live Preview in Templates Tab ---
+        // samplePosts contains data for the latest 4 posts (generated server side).
+        var samplePosts = <?php
+            $sample_posts = [];
+            $preview_query = new WP_Query([
+                'posts_per_page' => 4,
+                'post_status'    => 'publish'
+            ]);
+            if ( $preview_query->have_posts() ) {
+                while ( $preview_query->have_posts() ) {
+                    $preview_query->the_post();
+                    $sample_posts[] = [
+                        'permalink'  => get_permalink(),
+                        'thumbnail'  => ( has_post_thumbnail() ? get_the_post_thumbnail( get_the_ID(), 'cpg-grid-thumb', [ 'class' => 'featured', 'loading' => 'lazy' ] ) : '<img src="' . esc_url( get_option("cpg_default_thumbnail", "/wp-content/uploads/2024/09/default-thumbnail.png") ) . '" class="featured" alt="Fallback Thumbnail" width="240" height="200" loading="lazy" />' ),
+                        'post_icon'  => ( get_post_meta( get_the_ID(), '_cpg_post_icon', true ) ? '<img src="' . esc_url( get_post_meta( get_the_ID(), '_cpg_post_icon', true ) ) . '" class="icon-overlay" alt="Post Icon">' : '' ),
+                        'title'      => get_the_title(),
+                        'excerpt'    => ( ! empty( get_the_excerpt() ) ? '<p>' . wp_trim_words( get_the_excerpt(), 15, '...' ) . '</p>' : '' )
+                    ];
+                }
+                wp_reset_postdata();
+            }
+            echo json_encode( $sample_posts );
+        ?>;
+
+        function renderPreview( template, postData ) {
+            var html = template;
+            html = html.replace( /{{permalink}}/g, postData.permalink );
+            html = html.replace( /{{thumbnail}}/g, postData.thumbnail );
+            html = html.replace( /{{post_icon}}/g, postData.post_icon );
+            html = html.replace( /{{title}}/g, postData.title );
+            html = html.replace( /{{excerpt}}/g, postData.excerpt );
+            return html;
+        }
+
+        function updatePreviews() {
+            var gridTemplate = document.getElementById('cpg_post_grid_item_template').value;
+            var listTemplate = document.getElementById('cpg_post_list_item_template').value;
+            var gridPreviewContainer = document.getElementById('cpg-grid-preview');
+            var listPreviewContainer = document.getElementById('cpg-list-preview');
+            var gridHTML = '<div class="cpg-grid">';
+            var listHTML = '<div class="cpg-list">';
+            samplePosts.forEach(function(post) {
+                gridHTML += renderPreview( gridTemplate, post );
+                listHTML += renderPreview( listTemplate, post );
+            });
+            gridHTML += '</div>';
+            listHTML += '</div>';
+            gridPreviewContainer.innerHTML = gridHTML;
+            listPreviewContainer.innerHTML = listHTML;
+        }
+
+        // Update previews on keyup in either textarea.
+        var gridTextarea = document.getElementById('cpg_post_grid_item_template');
+        var listTextarea = document.getElementById('cpg_post_list_item_template');
+        if ( gridTextarea && listTextarea ) {
+            gridTextarea.addEventListener('keyup', updatePreviews);
+            listTextarea.addEventListener('keyup', updatePreviews);
+        }
+    });
+    </script>
+    <?php
+}
+add_action( 'admin_enqueue_scripts', 'cpg_enqueue_admin_scripts' );
+
+// ============================================
+//  Tabs
+// ============================================
+
+function cpg_settings_page() {
+    if ( $_SERVER['REQUEST_METHOD'] == 'POST' && isset( $_POST['cpg_default_thumbnail'] ) ) {
+        $default_thumbnail = esc_url_raw( $_POST['cpg_default_thumbnail'] );
+        update_option( 'cpg_default_thumbnail', $default_thumbnail );
+        echo '<div class="notice notice-success"><p>Settings updated successfully.</p></div>';
+    }
+    $default_thumbnail = get_option( 'cpg_default_thumbnail', '/wp-content/uploads/2024/09/default-thumbnail.png' );
+    ?>
+    <div class="wrap">
+        <h1>Settings</h1>
+        <form method="post">
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">Default Fallback Thumbnail</th>
+                    <td>
+                        <div id="cpg_default_thumbnail_container">
+                            <?php if ( $default_thumbnail ) : ?>
+                                <img src="<?php echo esc_url( $default_thumbnail ); ?>" style="max-width: 150px; height: auto; display:block; margin-bottom:10px;">
+                            <?php endif; ?>
+                            <input type="hidden" name="cpg_default_thumbnail" id="cpg_default_thumbnail" value="<?php echo esc_attr( $default_thumbnail ); ?>">
+                            <button type="button" id="upload_default_thumbnail_button" class="button">Upload Default Thumbnail</button>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button( 'Save Settings' ); ?>
+        </form>
     </div>
     <?php
 }
@@ -348,42 +526,41 @@ function cpg_cache_settings_page() {
 
 function cpg_templates_page() {
     $default_grid_template = '<a href="{{permalink}}" class="cpg-item">
-        <div class="cpg-image-wrapper">
-            {{thumbnail}}
-        </div>
-        {{post_icon}}
-        <div class="cpg-content">
-            <h3>{{title}}</h3>
-            {{excerpt}}
-        </div>
-    </a>';
+    <div class="cpg-image-wrapper">
+        {{thumbnail}}
+    </div>
+    {{post_icon}}
+    <div class="cpg-content">
+        <h3>{{title}}</h3>
+        {{excerpt}}
+    </div>
+</a>';
 
     $default_list_template = '<a href="{{permalink}}" class="cpg-item">
-        <div class="cpg-image-wrapper">
-            {{thumbnail}}
-        </div>
-        {{post_icon}}
-        <div class="cpg-content">
-            <h3>{{title}}</h3>
-            {{excerpt}}
-        </div>
-    </a>';
-    // Process form submission to update the templates
-    if ( $_SERVER['REQUEST_METHOD'] == 'POST' ) {
-        $grid_template = isset( $_POST['cpg_post_grid_item_template'] ) ? wp_unslash( $_POST['cpg_post_grid_item_template'] ) : '';
-        $list_template = isset( $_POST['cpg_post_list_item_template'] ) ? wp_unslash( $_POST['cpg_post_list_item_template'] ) : '';
+    <div class="cpg-image-wrapper">
+        {{thumbnail}}
+    </div>
+    {{post_icon}}
+    <div class="cpg-content">
+        <h3>{{title}}</h3>
+        {{excerpt}}
+    </div>
+</a>';
+
+    if ( $_SERVER['REQUEST_METHOD'] == 'POST' && isset( $_POST['cpg_post_grid_item_template'] ) ) {
+        $grid_template = wp_unslash( $_POST['cpg_post_grid_item_template'] );
+        $list_template = wp_unslash( $_POST['cpg_post_list_item_template'] );
         update_option( 'cpg_post_grid_item_template', $grid_template );
         update_option( 'cpg_post_list_item_template', $list_template );
         echo '<div class="notice notice-success"><p>Templates updated successfully.</p></div>';
     }
 
-    // Retrieve current templates
-    $grid_template = get_option('cpg_post_grid_item_template', $default_grid_template);
-    $list_template = get_option('cpg_post_list_item_template', $default_list_template);
+    $grid_template = get_option( 'cpg_post_grid_item_template', $default_grid_template );
+    $list_template = get_option( 'cpg_post_list_item_template', $default_list_template );
     ?>
     <div class="wrap">
-        <h1>Templates</h1>
-        <p>Create and manage the HTML templates for your post grids.<br>Placeholders to use: <code>{{post_title}}</code></p>
+        <h1>HTML Templates</h1>
+        <p>Customize the HTML markup for your post grids and lists. Use placeholders like <code>{{permalink}}</code>, <code>{{thumbnail}}</code>, <code>{{post_icon}}</code>, <code>{{title}}</code> and <code>{{excerpt}}</code> to output dynamic content.</p>
         <form method="post">
             <table class="form-table">
                 <tr valign="top">
@@ -401,61 +578,58 @@ function cpg_templates_page() {
             </table>
             <?php submit_button( 'Save Templates' ); ?>
         </form>
+
+        <h2>Preview</h2>
+        <?php
+        // Get the latest 4 posts for preview.
+        $preview_query = new WP_Query([
+            'posts_per_page' => 4,
+            'post_status'    => 'publish'
+        ]);
+        $renderer = new CPG_Renderer();
+        ?>
+        <h3>Grid Preview</h3>
+        <div id="cpg-grid-preview" style="border:1px solid #ddd; padding:10px; margin-bottom:20px;">
+            <?php
+            if ( $preview_query->have_posts() ) {
+                echo '<div class="cpg-grid">';
+                while ( $preview_query->have_posts() ) {
+                    $preview_query->the_post();
+                    echo $renderer->get_post_item_html( get_the_ID(), [
+                        'view'             => 'grid',
+                        'posts_per_line'   => 4,
+                        'max_image_height' => '200px',
+                        'show_post_excerpt'=> 'true'
+                    ] );
+                }
+                echo '</div>';
+                wp_reset_postdata();
+            } else {
+                echo '<p>No posts for preview.</p>';
+            }
+            ?>
+        </div>
+        <h3>List Preview</h3>
+        <div id="cpg-list-preview" style="border:1px solid #ddd; padding:10px;">
+            <?php
+            if ( $preview_query->have_posts() ) {
+                echo '<div class="cpg-list">';
+                while ( $preview_query->have_posts() ) {
+                    $preview_query->the_post();
+                    echo $renderer->get_post_item_html( get_the_ID(), [
+                        'view'             => 'list',
+                        'posts_per_line'   => 4,
+                        'max_image_height' => '200px',
+                        'show_post_excerpt'=> 'true'
+                    ] );
+                }
+                echo '</div>';
+                wp_reset_postdata();
+            } else {
+                echo '<p>No posts for preview.</p>';
+            }
+            ?>
+        </div>
     </div>
     <?php
 }
-
-function cpg_enqueue_admin_scripts() {
-    wp_enqueue_media();
-    ?>
-    <script type="text/javascript">
-        document.addEventListener('DOMContentLoaded', function() {
-            var uploadButtons = document.querySelectorAll('.upload_image_button');
-            var customUploader;
-
-            uploadButtons.forEach(function(button) {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    var container = document.getElementById('cpg_image_container');
-
-                    if (customUploader) {
-                        customUploader.open();
-                        return;
-                    }
-
-                    customUploader = wp.media({
-                        title: 'Choose Image',
-                        button: {
-                            text: 'Choose Image'
-                        },
-                        multiple: true
-                    });
-
-                    customUploader.on('select', function() {
-                        var attachments = customUploader.state().get('selection').toArray();
-                        attachments.forEach(function(attachment) {
-                            var imageUrl = attachment.attributes.url;
-                            var imageHtml = document.createElement('div');
-                            imageHtml.className = 'cpg-image-item';
-                            imageHtml.innerHTML = '<img src="' + imageUrl + '" style="max-width: 100px; height: auto; margin-right: 10px;" />' +
-                                                  '<input type="hidden" name="cpg_image_library[]" value="' + imageUrl + '" />' +
-                                                  '<button type="button" class="remove_image_button button">Remove</button>';
-                            container.appendChild(imageHtml);
-                        });
-                    });
-
-                    customUploader.open();
-                });
-            });
-
-            document.addEventListener('click', function(e) {
-                if (e.target && e.target.classList.contains('remove_image_button')) {
-                    e.preventDefault();
-                    e.target.closest('.cpg-image-item').remove();
-                }
-            });
-        });
-    </script>
-    <?php
-}
-add_action( 'admin_enqueue_scripts', 'cpg_enqueue_admin_scripts' );

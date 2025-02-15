@@ -14,16 +14,16 @@ class CPG_Renderer {
      * @return string
      */
     public function render_normal_scenario( $atts, $paged, $posts_per_page ) {
-        $orderby = in_array( $atts['sortby'], [ 'date', 'random' ] ) ? $atts['sortby'] : 'date';
-        $order   = ( strtoupper( $atts['order'] ) === 'ASC' ) ? 'ASC' : 'DESC';
+        $order = ( strtoupper( $atts['order'] ) === 'ASC' ) ? 'ASC' : 'DESC';
 
-        $query_args = [
-            'post_type'      => [ 'post', 'video' ],
-            'posts_per_page' => $posts_per_page,
-            'paged'          => $paged,
-            'orderby'        => ( $orderby === 'random' ) ? 'rand' : 'date',
-            'order'          => $order,
-        ];
+    // Build the base query arguments using sortby.
+    $query_args = [
+        'post_type'      => [ 'post', 'video' ],
+        'posts_per_page' => $posts_per_page,
+        'paged'          => $paged,
+        'orderby'        => ( $atts['sortby'] === 'random' ) ? 'rand' : 'date',
+        'order'          => $order,
+    ];
 
         // Handle category filtering.
         if ( $atts['category'] === 'current' ) {
@@ -54,31 +54,16 @@ class CPG_Renderer {
             }
         }
 
-        $is_cached = false;
-        if ( $orderby === 'random' ) {
-            $query = new WP_Query( $query_args );
-        } else {
-            $cache_key    = 'cpg_category_posts_' . md5( json_encode( $query_args ) );
-            $cached_posts = get_transient( $cache_key );
-            $expiration   = intval( get_option( 'cpg_cache_expiration', 7 ) ) * DAY_IN_SECONDS;
-            if ( false !== $cached_posts ) {
-                $query     = (object) [ 'posts' => $cached_posts, 'max_num_pages' => 1 ];
-                $is_cached = true;
-            } else {
-                $query = new WP_Query( $query_args );
-                set_transient( $cache_key, $query->posts, $expiration );
-            }
-        }
+        $query = cpg_get_cached_query( 'category_posts', $query_args);
 
         ob_start();
         if ( ! empty( $query->posts ) ) {
-            // If scroll navigation is enabled.
             if ( ! empty( $atts['allowscroll'] ) && $atts['allowscroll'] === 'true' ) {
                 echo '<div class="cpg-scroll-container">';
                 echo '<button class="cpg-arrow-prev">&lt;</button>';
                 echo '<div class="cpg-scrollable-inner">';
                 $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid cpg-scrollable-desktop';
-                echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" data-cached="' . ( $is_cached ? 'true' : 'false' ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
+                echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
                 foreach ( $query->posts as $post ) {
                     setup_postdata( $post );
                     echo $this->get_post_item_html( $post->ID, $atts );
@@ -88,9 +73,8 @@ class CPG_Renderer {
                 echo '<button class="cpg-arrow-next">&gt;</button>';
                 echo '</div>'; // close scroll container
             } else {
-                // Normal grid/list layout.
                 $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid';
-                echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" data-cached="' . ( $is_cached ? 'true' : 'false' ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
+                echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
                 foreach ( $query->posts as $post ) {
                     setup_postdata( $post );
                     echo $this->get_post_item_html( $post->ID, $atts );
@@ -98,7 +82,6 @@ class CPG_Renderer {
                 echo '</div>';
             }
 
-            // Add pagination if enabled.
             if ( ! empty( $atts['pagination'] ) && $atts['pagination'] !== 'false' ) {
                 echo $this->build_pagination_html( $paged, $query->max_num_pages );
             }
@@ -110,7 +93,7 @@ class CPG_Renderer {
     }
 
     /**
-     * Renders the “search” scenario.
+     * Renders the “search” scenario
      *
      * @param array $atts
      * @param int   $paged
@@ -127,12 +110,13 @@ class CPG_Renderer {
             'post_type'      => [ 'post', 'video', 'page' ],
             'posts_per_page' => $posts_per_page,
             's'              => $search_query,
-            'orderby'        => 'relevance',
+            'orderby'        => ( $atts['sortby'] === 'random' ) ? 'rand' : 'relevance',
             'order'          => 'DESC',
             'paged'          => $paged,
         ];
 
-        $query = new WP_Query( $query_args );
+        $query = cpg_get_cached_query( 'search_posts', $query_args);
+
         if ( function_exists( 'relevanssi_do_query' ) ) {
             relevanssi_do_query( $query );
         }
@@ -157,7 +141,7 @@ class CPG_Renderer {
     }
 
     /**
-     * Renders the “related” scenario.
+     * Renders the “related” scenario
      *
      * @param array $atts
      * @param int   $posts_per_page
@@ -165,31 +149,22 @@ class CPG_Renderer {
      * @return string
      */
     public function render_related_scenario( $atts, $posts_per_page, $paged = 1 ) {
-        $post_id   = get_the_ID();
-        $cache_key = 'cpg_related_posts_' . $post_id . '_' . $posts_per_page;
-        $related_posts = get_transient( $cache_key );
-        $is_cached = false;
-        if ( false === $related_posts ) {
-            // Use your related posts logic here. (This example uses a random query.)
-            $args  = [
-                'post_type'      => [ 'post', 'video' ],
-                'posts_per_page' => $posts_per_page,
-                'post__not_in'   => [ $post_id ],
-                'orderby'        => 'rand',
-            ];
-            $query = new WP_Query( $args );
-            $related_posts = wp_list_pluck( $query->posts, 'ID' );
-            $expiration = intval( get_option( 'cpg_cache_expiration', 7 ) ) * DAY_IN_SECONDS;
-            set_transient( $cache_key, $related_posts, $expiration );
-        } else {
-            $is_cached = true;
-        }
+        $post_id = get_the_ID();
+        $query_args = [
+            'post_type'      => [ 'post', 'video' ],
+            'posts_per_page' => $posts_per_page,
+            'post__not_in'   => [ $post_id ],
+            'orderby'        => ( isset( $atts['sortby'] ) && $atts['sortby'] === 'random' ) ? 'rand' : 'date',
+        ];
+
+        // Here we force caching by not using "random" as the bypass trigger.
+        $query = cpg_get_cached_query( 'related_posts', $query_args);
 
         ob_start();
-        if ( ! empty( $related_posts ) ) {
+        if ( ! empty( $query->posts ) ) {
             $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid';
-            echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" data-cached="' . ( $is_cached ? 'true' : 'false' ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
-            foreach ( $related_posts as $related_id ) {
+            echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
+            foreach ( $query->posts as $related_id ) {
                 echo $this->get_post_item_html( $related_id, $atts );
             }
             echo '</div>';
@@ -199,6 +174,7 @@ class CPG_Renderer {
         return ob_get_clean();
     }
 
+
     /**
      * Returns the HTML for a single post item using admin-defined templates.
      *
@@ -206,7 +182,7 @@ class CPG_Renderer {
      * @param array $atts
      * @return string
      */
-    private function get_post_item_html( $post_id, $atts ) {
+    public function get_post_item_html( $post_id, $atts ) {
         // Determine which template to use based on the view type.
         $view = isset( $atts['view'] ) ? $atts['view'] : 'grid';
         if ( $view === 'list' ) {
@@ -230,18 +206,11 @@ class CPG_Renderer {
         }
 
         $post_icon_meta = get_post_meta( $post_id, '_cpg_post_icon', true );
-        if ( $post_icon_meta ) {
-            $post_icon = '<img src="' . esc_url( $post_icon_meta ) . '" class="icon-overlay" alt="Post Icon">';
-        } else {
-            $post_icon = '';
-        }
-
+        $post_icon = $post_icon_meta ? '<img src="' . esc_url( $post_icon_meta ) . '" class="icon-overlay" alt="Post Icon">' : '';
         $title = get_the_title( $post_id );
-        if ( ! empty( $atts['show_post_excerpt'] ) && $atts['show_post_excerpt'] === 'true' ) {
-            $excerpt = '<p>' . wp_trim_words( get_the_excerpt( $post_id ), 15, '...' ) . '</p>';
-        } else {
-            $excerpt = '';
-        }
+        $excerpt = ( ! empty( $atts['show_post_excerpt'] ) && $atts['show_post_excerpt'] === 'true' )
+                    ? '<p>' . wp_trim_words( get_the_excerpt( $post_id ), 15, '...' ) . '</p>'
+                    : '';
 
         // Replace placeholders with dynamic content.
         $placeholders = [ '{{permalink}}', '{{thumbnail}}', '{{post_icon}}', '{{title}}', '{{excerpt}}' ];
@@ -258,16 +227,16 @@ class CPG_Renderer {
      */
     private function get_default_grid_template() {
         return '<a href="{{permalink}}" class="cpg-item">
-            <div class="cpg-image-wrapper">
-                {{thumbnail}}
-            </div>
-            {{post_icon}}
-            <div class="cpg-content">
-                <h3>{{title}}</h3>
-                {{excerpt}}
-            </div>
-        </a>';
-        }
+    <div class="cpg-image-wrapper">
+        {{thumbnail}}
+    </div>
+    {{post_icon}}
+    <div class="cpg-content">
+        <h3>{{title}}</h3>
+        {{excerpt}}
+    </div>
+</a>';
+    }
 
     /**
      * Returns the default list item template.

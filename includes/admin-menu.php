@@ -19,12 +19,11 @@ function cpg_tabbed_settings_page() {
     $current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'settings';
     ?>
     <div class="wrap">
-        <h1>Post Grid Settings</h1>
+        <h1>Polaris Post Grids</h1>
         <h2 class="nav-tab-wrapper">
             <a href="?page=polaris-post-grid-settings&tab=settings" class="nav-tab <?php echo $current_tab === 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
             <a href="?page=polaris-post-grid-settings&tab=post_icons" class="nav-tab <?php echo $current_tab === 'post_icons' ? 'nav-tab-active' : ''; ?>">Post Icons</a>
             <a href="?page=polaris-post-grid-settings&tab=cache" class="nav-tab <?php echo $current_tab === 'cache' ? 'nav-tab-active' : ''; ?>">Cache</a>
-            <a href="?page=polaris-post-grid-settings&tab=css" class="nav-tab <?php echo $current_tab === 'css' ? 'nav-tab-active' : ''; ?>">CSS</a>
             <a href="?page=polaris-post-grid-settings&tab=templates" class="nav-tab <?php echo $current_tab === 'templates' ? 'nav-tab-active' : ''; ?>">Templates</a>
             <a href="?page=polaris-post-grid-settings&tab=generator" class="nav-tab <?php echo $current_tab === 'generator' ? 'nav-tab-active' : ''; ?>">Generator</a>
         </h2>
@@ -35,8 +34,6 @@ function cpg_tabbed_settings_page() {
             cpg_post_icons_page();
         } elseif ( $current_tab === 'cache' ) {
             cpg_cache_settings_page();
-        } elseif ( $current_tab === 'css' ) {
-            cpg_custom_css_page();
         } elseif ( $current_tab === 'templates' ) {
             cpg_templates_page();
         } elseif ( $current_tab === 'generator' ) {
@@ -444,35 +441,6 @@ function cpg_post_icons_page() {
     <?php
 }
 
-function cpg_custom_css_page() {
-    $css_file_path = plugin_dir_path(__FILE__) . 'includes/style.css';
-
-    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cpg_custom_css'])) {
-        if (is_writable($css_file_path)) {
-            file_put_contents($css_file_path, wp_unslash($_POST['cpg_custom_css']));
-            echo '<div class="notice notice-success"><p>CSS file updated successfully.</p></div>';
-        } else {
-            echo '<div class="notice notice-error"><p>Unable to write to the CSS file. Please check file permissions.</p></div>';
-        }
-    }
-
-    $custom_css = '';
-    if (file_exists($css_file_path)) {
-        $custom_css = file_get_contents($css_file_path);
-    }
-
-    ?>
-    <div class="wrap">
-        <h1>Custom CSS</h1>
-        <p>Get's injected straight into the shortcode.</p>
-        <form method="post">
-            <textarea name="cpg_custom_css" rows="20" cols="100" style="width: 100%;"><?php echo esc_textarea($custom_css); ?></textarea>
-            <?php submit_button('Save Custom CSS'); ?>
-        </form>
-    </div>
-    <?php
-}
-
 function cpg_cache_settings_page() {
     // Process form submission for cache settings
     if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -526,26 +494,26 @@ function cpg_cache_settings_page() {
 
 function cpg_templates_page() {
     $default_grid_template = '<a href="{{permalink}}" class="cpg-item">
-    <div class="cpg-image-wrapper">
-        {{thumbnail}}
-    </div>
-    {{post_icon}}
-    <div class="cpg-content">
-        <h3>{{title}}</h3>
-        {{excerpt}}
-    </div>
-</a>';
+        <div class="cpg-image-wrapper">
+            {{thumbnail}}
+        </div>
+        {{post_icon}}
+        <div class="cpg-content">
+            <h3>{{title}}</h3>
+            {{excerpt}}
+        </div>
+    </a>';
 
     $default_list_template = '<a href="{{permalink}}" class="cpg-item">
-    <div class="cpg-image-wrapper">
-        {{thumbnail}}
-    </div>
-    {{post_icon}}
-    <div class="cpg-content">
-        <h3>{{title}}</h3>
-        {{excerpt}}
-    </div>
-</a>';
+        <div class="cpg-image-wrapper">
+            {{thumbnail}}
+        </div>
+        {{post_icon}}
+        <div class="cpg-content">
+            <h3>{{title}}</h3>
+            {{excerpt}}
+        </div>
+    </a>';
 
     if ( $_SERVER['REQUEST_METHOD'] == 'POST' && isset( $_POST['cpg_post_grid_item_template'] ) ) {
         $grid_template = wp_unslash( $_POST['cpg_post_grid_item_template'] );
@@ -557,78 +525,48 @@ function cpg_templates_page() {
 
     $grid_template = get_option( 'cpg_post_grid_item_template', $default_grid_template );
     $list_template = get_option( 'cpg_post_list_item_template', $default_list_template );
+
+    // Get CSS file content for the CSS editor
+    $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
+    error_log( 'CSS file path: ' . $css_file_path );
+
+    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cpg_custom_css'])) {
+        if (is_writable($css_file_path)) {
+            file_put_contents($css_file_path, wp_unslash($_POST['cpg_custom_css']));
+            echo '<div class="notice notice-success"><p>CSS file updated successfully.</p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>Unable to write to the CSS file. Please check file permissions.</p></div>';
+        }
+    }
+    $custom_css = '';
+    if (file_exists($css_file_path)) {
+        $custom_css = file_get_contents($css_file_path);
+    }
     ?>
     <div class="wrap">
         <h1>HTML Templates</h1>
-        <p>Customize the HTML markup for your post grids and lists. Use placeholders like <code>{{permalink}}</code>, <code>{{thumbnail}}</code>, <code>{{post_icon}}</code>, <code>{{title}}</code> and <code>{{excerpt}}</code> to output dynamic content.</p>
+        <p>Placeholders: <code>{{permalink}}</code>, <code>{{thumbnail}}</code>, <code>{{post_icon}}</code>, <code>{{title}}</code> and <code>{{excerpt}}</code></p>
         <form method="post">
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row"><label for="cpg_post_grid_item_template">Post Grid Item Template</label></th>
-                    <td>
-                        <textarea id="cpg_post_grid_item_template" name="cpg_post_grid_item_template" rows="10" cols="100" style="width: 100%;"><?php echo esc_textarea( $grid_template ); ?></textarea>
-                    </td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row"><label for="cpg_post_list_item_template">Post List Item Template</label></th>
-                    <td>
-                        <textarea id="cpg_post_list_item_template" name="cpg_post_list_item_template" rows="10" cols="100" style="width: 100%;"><?php echo esc_textarea( $list_template ); ?></textarea>
-                    </td>
-                </tr>
-            </table>
+            <h2>Post Grid Item Template</h2>
+            <textarea id="cpg_post_grid_item_template" name="cpg_post_grid_item_template" rows="20" style="width:100%;"><?php echo esc_textarea( $grid_template ); ?></textarea>
+            <h2>Post List Item Template</h2>
+            <textarea id="cpg_post_list_item_template" name="cpg_post_list_item_template" rows="20" style="width:100%;"><?php echo esc_textarea( $list_template ); ?></textarea>
             <?php submit_button( 'Save Templates' ); ?>
         </form>
 
+        <h2>Custom CSS</h2>
+        <form method="post">
+            <textarea name="cpg_custom_css" rows="20" style="width:100%;"><?php echo esc_textarea($custom_css); ?></textarea>
+            <?php submit_button('Save Custom CSS'); ?>
+        </form>
+
         <h2>Preview</h2>
-        <?php
-        // Get the latest 4 posts for preview.
-        $preview_query = new WP_Query([
-            'posts_per_page' => 4,
-            'post_status'    => 'publish'
-        ]);
-        $renderer = new CPG_Renderer();
-        ?>
         <h3>Grid Preview</h3>
-        <div id="cpg-grid-preview" style="border:1px solid #ddd; padding:10px; margin-bottom:20px;">
-            <?php
-            if ( $preview_query->have_posts() ) {
-                echo '<div class="cpg-grid">';
-                while ( $preview_query->have_posts() ) {
-                    $preview_query->the_post();
-                    echo $renderer->get_post_item_html( get_the_ID(), [
-                        'view'             => 'grid',
-                        'posts_per_line'   => 4,
-                        'max_image_height' => '200px',
-                        'show_post_excerpt'=> 'true'
-                    ] );
-                }
-                echo '</div>';
-                wp_reset_postdata();
-            } else {
-                echo '<p>No posts for preview.</p>';
-            }
-            ?>
-        </div>
+        <?php echo do_shortcode('[category_post_grid category="nieuws" posts_per_line="5" view="grid" max_image_height="200px"]'); ?>
+
         <h3>List Preview</h3>
-        <div id="cpg-list-preview" style="border:1px solid #ddd; padding:10px;">
-            <?php
-            if ( $preview_query->have_posts() ) {
-                echo '<div class="cpg-list">';
-                while ( $preview_query->have_posts() ) {
-                    $preview_query->the_post();
-                    echo $renderer->get_post_item_html( get_the_ID(), [
-                        'view'             => 'list',
-                        'posts_per_line'   => 4,
-                        'max_image_height' => '200px',
-                        'show_post_excerpt'=> 'true'
-                    ] );
-                }
-                echo '</div>';
-                wp_reset_postdata();
-            } else {
-                echo '<p>No posts for preview.</p>';
-            }
-            ?>
+        <div style="width: 30%;">
+            <?php echo do_shortcode('[category_post_grid category="nieuws" posts_per_line="5" view="list" max_image_height="200px"]'); ?>
         </div>
     </div>
     <?php

@@ -10,6 +10,8 @@ Plugin URI: https://www.polarisit.nl/post-grids
 
 require_once plugin_dir_path(__FILE__) . 'includes/shortcode.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers.php';
+require_once plugin_dir_path(__FILE__) . 'includes/cpg-cache.php';
+require_once plugin_dir_path(__FILE__) . 'includes/cpg-renderer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/ajax.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin-menu.php';
 add_image_size('cpg-grid-thumb', 240, 200, true);
@@ -102,38 +104,4 @@ function cpg_save_quick_edit_icon_meta($post_id) {
     }
 }
 add_action( 'save_post', 'cpg_save_quick_edit_icon_meta' );
-
-// ============================================
-//  Caching
-// ============================================
-
-/**
- * Delete all transients whose keys start with our plugin prefix.
- */
-function cpg_clear_all_cache() {
-    global $wpdb;
-    $like = '_transient_cpg_%';
-    $wpdb->query( $wpdb->prepare(
-        "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
-        $like
-    ) );
-}
-
-/**
- * Hook into post publishing to clear cache.
- */
-function cpg_invalidate_cache_on_new_post($post_id, $post) {
-    if ( wp_is_post_revision($post_id) || ( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ) ) {
-        return;
-    }
-
-    if ( 'publish' !== $post->post_status ) {
-        return;
-    }
-
-    // (Optional) If you want more granularity you could check whether the post belongs
-    // to categories used by the grid. For simplicity, we clear all plugin cache here.
-    cpg_clear_all_cache();
-}
-add_action('save_post', 'cpg_invalidate_cache_on_new_post', 10, 2);
 

@@ -34,7 +34,7 @@ function cpg_register_shortcode( $atts ) {
     // Determine posts per page.
     if ( wp_is_mobile() ) {
         $posts_per_page = (int) $atts['list_limit'];
-        $atts['view']   = 'list';
+        $atts['view'] = 'list';
     } else {
         $posts_per_page = (int) $atts['posts_per_line'] * (int) $atts['number_of_lines'];
     }

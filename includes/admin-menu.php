@@ -493,6 +493,7 @@ function cpg_cache_settings_page() {
 }
 
 function cpg_templates_page() {
+    // Define default templates.
     $default_grid_template = '<a href="{{permalink}}" class="cpg-item">
         <div class="cpg-image-wrapper">
             {{thumbnail}}
@@ -515,59 +516,130 @@ function cpg_templates_page() {
         </div>
     </a>';
 
+    $default_container_template = '<div class="{{container_class}}" data-posts-per-line="{{posts_per_line}}" style="--posts-per-line:{{posts_per_line}}; --max-image-height:{{max_image_height}};">
+        {{post_items}}
+    </div>';
+
+    // Process form submission for all fields.
     if ( $_SERVER['REQUEST_METHOD'] == 'POST' && isset( $_POST['cpg_post_grid_item_template'] ) ) {
-        $grid_template = wp_unslash( $_POST['cpg_post_grid_item_template'] );
-        $list_template = wp_unslash( $_POST['cpg_post_list_item_template'] );
+        $grid_template      = wp_unslash( $_POST['cpg_post_grid_item_template'] );
+        $list_template      = wp_unslash( $_POST['cpg_post_list_item_template'] );
+        $container_template = wp_unslash( $_POST['cpg_post_container_template'] );
+        $custom_css         = wp_unslash( $_POST['cpg_custom_css'] );
+
         update_option( 'cpg_post_grid_item_template', $grid_template );
         update_option( 'cpg_post_list_item_template', $list_template );
-        echo '<div class="notice notice-success"><p>Templates updated successfully.</p></div>';
-    }
+        update_option( 'cpg_post_container_template', $container_template );
 
-    $grid_template = get_option( 'cpg_post_grid_item_template', $default_grid_template );
-    $list_template = get_option( 'cpg_post_list_item_template', $default_list_template );
-
-    // Get CSS file content for the CSS editor
-    $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
-    error_log( 'CSS file path: ' . $css_file_path );
-
-    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['cpg_custom_css'])) {
-        if (is_writable($css_file_path)) {
-            file_put_contents($css_file_path, wp_unslash($_POST['cpg_custom_css']));
-            echo '<div class="notice notice-success"><p>CSS file updated successfully.</p></div>';
+        // Update CSS file.
+        $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
+        if ( is_writable( $css_file_path ) ) {
+            file_put_contents( $css_file_path, $custom_css );
+            $css_update_message = '<div class="notice notice-success"><p>CSS file updated successfully.</p></div>';
         } else {
-            echo '<div class="notice notice-error"><p>Unable to write to the CSS file. Please check file permissions.</p></div>';
+            $css_update_message = '<div class="notice notice-error"><p>Unable to write to the CSS file. Please check file permissions.</p></div>';
         }
+        echo '<div class="notice notice-success"><p>Templates and CSS updated successfully.</p></div>';
+        echo $css_update_message;
     }
-    $custom_css = '';
-    if (file_exists($css_file_path)) {
-        $custom_css = file_get_contents($css_file_path);
+
+    // Get saved templates or fall back to defaults.
+    $grid_template      = get_option( 'cpg_post_grid_item_template', $default_grid_template );
+    $list_template      = get_option( 'cpg_post_list_item_template', $default_list_template );
+    $container_template = get_option( 'cpg_post_container_template', $default_container_template );
+
+    // Get CSS file content for the CSS editor.
+    $css_file_path = plugin_dir_path(__FILE__) . 'style.css';
+    $custom_css    = '';
+    if ( file_exists( $css_file_path ) ) {
+        $custom_css = file_get_contents( $css_file_path );
     }
     ?>
+    <style>
+        .cpg-admin-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+        .cpg-editor {
+            width: 60%;
+            box-sizing: border-box;
+        }
+        .cpg-preview {
+            width: 38%;
+            box-sizing: border-box;
+        }
+        .cpg-preview .preview-section {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+        .cpg-grid-preview {
+            margin-top: 40px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+        textarea {
+            width: 100%;
+            font-family: monospace;
+        }
+        .template-placeholders {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+    </style>
     <div class="wrap">
-        <h1>HTML Templates</h1>
-        <p>Placeholders: <code>{{permalink}}</code>, <code>{{thumbnail}}</code>, <code>{{post_icon}}</code>, <code>{{title}}</code> and <code>{{excerpt}}</code></p>
-        <form method="post">
-            <h2>Post Grid Item Template</h2>
-            <textarea id="cpg_post_grid_item_template" name="cpg_post_grid_item_template" rows="20" style="width:100%;"><?php echo esc_textarea( $grid_template ); ?></textarea>
-            <h2>Post List Item Template</h2>
-            <textarea id="cpg_post_list_item_template" name="cpg_post_list_item_template" rows="20" style="width:100%;"><?php echo esc_textarea( $list_template ); ?></textarea>
-            <?php submit_button( 'Save Templates' ); ?>
-        </form>
-
-        <h2>Custom CSS</h2>
-        <form method="post">
-            <textarea name="cpg_custom_css" rows="20" style="width:100%;"><?php echo esc_textarea($custom_css); ?></textarea>
-            <?php submit_button('Save Custom CSS'); ?>
-        </form>
-
-        <h2>Preview</h2>
-        <h3>Grid Preview</h3>
-        <?php echo do_shortcode('[category_post_grid category="nieuws" posts_per_line="5" view="grid" max_image_height="200px"]'); ?>
-
-        <h3>List Preview</h3>
-        <div style="width: 30%;">
-            <?php echo do_shortcode('[category_post_grid category="nieuws" posts_per_line="5" view="list" max_image_height="200px"]'); ?>
+        <h1>HTML Templates & Custom CSS</h1>
+        <p>
+            Use the editors below to customize your templates. For each template the available placeholders are shown.
+        </p>
+        <div class="cpg-admin-container">
+            <!-- Editors Column -->
+            <div class="cpg-editor">
+                <form method="post">
+                    <h2>Post Grid Item Template</h2>
+                    <p class="template-placeholders">
+                        Placeholders: <code>{{permalink}}</code>, <code>{{thumbnail}}</code>, <code>{{post_icon}}</code>, <code>{{title}}</code>, <code>{{excerpt}}</code>
+                    </p>
+                    <textarea id="cpg_post_grid_item_template" name="cpg_post_grid_item_template" rows="10"><?php echo esc_textarea( $grid_template ); ?></textarea>
+                    
+                    <h2>Post List Item Template</h2>
+                    <p class="template-placeholders">
+                        Placeholders: <code>{{permalink}}</code>, <code>{{thumbnail}}</code>, <code>{{post_icon}}</code>, <code>{{title}}</code>, <code>{{excerpt}}</code>
+                    </p>
+                    <textarea id="cpg_post_list_item_template" name="cpg_post_list_item_template" rows="10"><?php echo esc_textarea( $list_template ); ?></textarea>
+                    
+                    <h2>Post Container Template</h2>
+                    <p class="template-placeholders">
+                        Placeholders: <code>{{container_class}}</code>, <code>{{posts_per_line}}</code>, <code>{{max_image_height}}</code>, <code>{{post_items}}</code>
+                    </p>
+                    <textarea id="cpg_post_container_template" name="cpg_post_container_template" rows="5"><?php echo esc_textarea( $container_template ); ?></textarea>
+                    
+                    <h2>Custom CSS</h2>
+                    <textarea name="cpg_custom_css" rows="20"><?php echo esc_textarea( $custom_css ); ?></textarea>
+                    
+                    <?php submit_button( 'Save Templates & CSS' ); ?>
+                </form>
+            </div>
+            <!-- Preview Column: Only Post List Preview -->
+            <div class="cpg-preview">
+                <div class="preview-section">
+                    <h2>Post List Preview</h2>
+                    <?php echo do_shortcode('[category_post_grid category="nieuws" posts_per_line="5" view="list" max_image_height="200px"]'); ?>
+                </div>
+            </div>
+        </div>
+        <!-- Full-width Post Grid Preview below the editors -->
+        <div class="cpg-grid-preview">
+            <h2>Post Grid Preview</h2>
+            <?php echo do_shortcode('[category_post_grid category="nieuws" posts_per_line="5" view="grid" max_image_height="200px"]'); ?>
         </div>
     </div>
     <?php
 }
+
+

@@ -16,14 +16,14 @@ class CPG_Renderer {
     public function render_normal_scenario( $atts, $paged, $posts_per_page ) {
         $order = ( strtoupper( $atts['order'] ) === 'ASC' ) ? 'ASC' : 'DESC';
 
-    // Build the base query arguments using sortby.
-    $query_args = [
-        'post_type'      => [ 'post', 'video' ],
-        'posts_per_page' => $posts_per_page,
-        'paged'          => $paged,
-        'orderby'        => ( $atts['sortby'] === 'random' ) ? 'rand' : 'date',
-        'order'          => $order,
-    ];
+        // Build the base query arguments using sortby.
+        $query_args = [
+            'post_type'      => [ 'post', 'video' ],
+            'posts_per_page' => $posts_per_page,
+            'paged'          => $paged,
+            'orderby'        => ( $atts['sortby'] === 'random' ) ? 'rand' : 'date',
+            'order'          => $order,
+        ];
 
         // Handle category filtering.
         if ( $atts['category'] === 'current' ) {
@@ -58,29 +58,13 @@ class CPG_Renderer {
 
         ob_start();
         if ( ! empty( $query->posts ) ) {
-            if ( ! empty( $atts['allowscroll'] ) && $atts['allowscroll'] === 'true' ) {
-                echo '<div class="cpg-scroll-container">';
-                echo '<button class="cpg-arrow-prev">&lt;</button>';
-                echo '<div class="cpg-scrollable-inner">';
-                $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid cpg-scrollable-desktop';
-                echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
-                foreach ( $query->posts as $post ) {
-                    setup_postdata( $post );
-                    echo $this->get_post_item_html( $post->ID, $atts );
-                }
-                echo '</div>'; // close grid container
-                echo '</div>'; // close scrollable inner
-                echo '<button class="cpg-arrow-next">&gt;</button>';
-                echo '</div>'; // close scroll container
-            } else {
-                $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid';
-                echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
-                foreach ( $query->posts as $post ) {
-                    setup_postdata( $post );
-                    echo $this->get_post_item_html( $post->ID, $atts );
-                }
-                echo '</div>';
+            $post_items = '';
+            foreach ( $query->posts as $post ) {
+                setup_postdata( $post );
+                $post_items .= $this->get_post_item_html( $post->ID, $atts );
             }
+            // Wrap the posts using the container template.
+            echo $this->render_container( $post_items, $atts );
 
             if ( ! empty( $atts['pagination'] ) && $atts['pagination'] !== 'false' ) {
                 echo $this->build_pagination_html( $paged, $query->max_num_pages );
@@ -93,7 +77,7 @@ class CPG_Renderer {
     }
 
     /**
-     * Renders the “search” scenario
+     * Renders the “search” scenario.
      *
      * @param array $atts
      * @param int   $paged
@@ -123,13 +107,13 @@ class CPG_Renderer {
 
         ob_start();
         if ( $query->have_posts() ) {
-            $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid';
-            echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
+            $post_items = '';
             while ( $query->have_posts() ) {
                 $query->the_post();
-                echo $this->get_post_item_html( get_the_ID(), $atts );
+                $post_items .= $this->get_post_item_html( get_the_ID(), $atts );
             }
-            echo '</div>';
+            echo $this->render_container( $post_items, $atts );
+
             if ( ! empty( $atts['pagination'] ) && $atts['pagination'] !== 'false' ) {
                 echo $this->build_pagination_html( $paged, $query->max_num_pages );
             }
@@ -141,7 +125,7 @@ class CPG_Renderer {
     }
 
     /**
-     * Renders the “related” scenario
+     * Renders the “related” scenario.
      *
      * @param array $atts
      * @param int   $posts_per_page
@@ -157,23 +141,97 @@ class CPG_Renderer {
             'orderby'        => ( isset( $atts['sortby'] ) && $atts['sortby'] === 'random' ) ? 'rand' : 'date',
         ];
 
-        // Here we force caching by not using "random" as the bypass trigger.
+        // Force caching by not using "random" as the bypass trigger.
         $query = cpg_get_cached_query( 'related_posts', $query_args);
 
         ob_start();
         if ( ! empty( $query->posts ) ) {
-            $container_class = ( $atts['view'] === 'list' ) ? 'cpg-list' : 'cpg-grid';
-            echo '<div class="' . esc_attr( $container_class ) . '" data-posts-per-line="' . intval( $atts['posts_per_line'] ) . '" style="--posts-per-line:' . intval( $atts['posts_per_line'] ) . '; --max-image-height:' . esc_attr( $atts['max_image_height'] ) . ';">';
+            $post_items = '';
             foreach ( $query->posts as $related_id ) {
-                echo $this->get_post_item_html( $related_id, $atts );
+                $post_items .= $this->get_post_item_html( $related_id, $atts );
             }
-            echo '</div>';
+            echo $this->render_container( $post_items, $atts );
         } else {
             echo '<p>No related posts found.</p>';
         }
         return ob_get_clean();
     }
 
+    /**
+     * Renders the container using a template.
+     *
+     * The container template is stored in the option 'cpg_post_container_template'
+     * and should include the placeholder {{post_items}} where the rendered posts are injected.
+     * If no template is defined, a default is provided which supports both scroll and non-scroll views.
+     *
+     * @param string $post_items The rendered HTML of all post items.
+     * @param array  $atts       The attributes passed to the shortcode.
+     * @return string
+     */
+    private function render_container( $post_items, $atts ) {
+        $template = get_option( 'cpg_post_container_template' );
+        $posts_per_line   = isset( $atts['posts_per_line'] ) ? intval( $atts['posts_per_line'] ) : 1;
+        $max_image_height = isset( $atts['max_image_height'] ) ? esc_attr( $atts['max_image_height'] ) : 'auto';
+        $view             = isset( $atts['view'] ) ? $atts['view'] : 'grid';
+
+        if ( $view === 'list' ) {
+            if ( ! empty( $atts['allowscroll'] ) && $atts['allowscroll'] === 'true' && wp_is_mobile() ) {
+                $container_class = 'cpg-list cpg-scrollable-mobile';
+            } else {
+                $container_class = 'cpg-list';
+            }
+        } else {
+            if ( ! empty( $atts['allowscroll'] ) && $atts['allowscroll'] === 'true' ) {
+                $container_class = wp_is_mobile() ? 'cpg-grid cpg-scrollable-mobile' : 'cpg-grid cpg-scrollable-desktop';
+            } else {
+                $container_class = 'cpg-grid';
+            }
+        }
+
+        // If no container template is defined, use a default one.
+        if ( empty( $template ) ) {
+            if ( ! empty( $atts['allowscroll'] ) && $atts['allowscroll'] === 'true' ) {
+                $template = '<div class="cpg-scroll-container">
+                    <button class="cpg-arrow-prev">&lt;</button>
+                    <div class="cpg-scrollable-inner">
+                        <div class="{{container_class}}" data-posts-per-line="{{posts_per_line}}" style="--posts-per-line:{{posts_per_line}}; --max-image-height:{{max_image_height}};">
+                            {{post_items}}
+                        </div>
+                    </div>
+                    <button class="cpg-arrow-next">&gt;</button>
+                </div>';
+            } else {
+                $template = '<div class="{{container_class}}" data-posts-per-line="{{posts_per_line}}" style="--posts-per-line:{{posts_per_line}}; --max-image-height:{{max_image_height}};">
+                    {{post_items}}
+                </div>';
+            }
+        }
+
+        $scroll_button_prev = '';
+        $scroll_button_next = '';
+        $scroll_container_start = '';
+        $scroll_container_end = '';
+
+        if ( ! wp_is_mobile() && ! empty( $atts['allowscroll'] ) && $atts['allowscroll'] === 'true' ) {
+            $scroll_button_prev = '<button class="cpg-arrow-prev">&lt;</button>';
+            $scroll_button_next = '<button class="cpg-arrow-next">&gt;</button>';
+            $scroll_container_start = '<div class="cpg-scrollable-inner">';
+            $scroll_container_end = '</div>';
+        }
+
+        $replacements = [
+            '{{container_class}}'       => esc_attr( $container_class ),
+            '{{posts_per_line}}'        => $posts_per_line,
+            '{{max_image_height}}'      => $max_image_height,
+            '{{scroll_button_prev}}'    => $scroll_button_prev,
+            '{{scroll_button_next}}'    => $scroll_button_next,
+            '{{scroll_container_start}}' => $scroll_container_start,
+            '{{scroll_container_end}}'   => $scroll_container_end,
+            '{{post_items}}'            => $post_items,
+        ];
+        $html = str_replace( array_keys( $replacements ), array_values( $replacements ), $template );
+        return $html;
+    }
 
     /**
      * Returns the HTML for a single post item using admin-defined templates.
@@ -227,15 +285,15 @@ class CPG_Renderer {
      */
     private function get_default_grid_template() {
         return '<a href="{{permalink}}" class="cpg-item">
-    <div class="cpg-image-wrapper">
-        {{thumbnail}}
-    </div>
-    {{post_icon}}
-    <div class="cpg-content">
-        <h3>{{title}}</h3>
-        {{excerpt}}
-    </div>
-</a>';
+            <div class="cpg-image-wrapper">
+                {{thumbnail}}
+            </div>
+            {{post_icon}}
+            <div class="cpg-content">
+                <h3>{{title}}</h3>
+                {{excerpt}}
+            </div>
+        </a>';
     }
 
     /**
@@ -245,15 +303,15 @@ class CPG_Renderer {
      */
     private function get_default_list_template() {
         return '<a href="{{permalink}}" class="cpg-item">
-    <div class="cpg-image-wrapper">
-        {{thumbnail}}
-    </div>
-    {{post_icon}}
-    <div class="cpg-content">
-        <h3>{{title}}</h3>
-        {{excerpt}}
-    </div>
-</a>';
+            <div class="cpg-image-wrapper">
+                {{thumbnail}}
+            </div>
+            {{post_icon}}
+            <div class="cpg-content">
+                <h3>{{title}}</h3>
+                {{excerpt}}
+            </div>
+        </a>';
     }
 
     /**

@@ -74,13 +74,12 @@
     object-fit: cover;
     object-position: center;
     max-height: var(--max-image-height);
-    min-height: var(--max-image-height);
+    /* min-height: var(--max-image-height); */
 }
 
 .cpg-list .cpg-image-wrapper {
     width: 30%;
-    max-width: 150px;
-    margin-right: 20px;
+    margin: auto;
 }
 
 .cpg-content {
@@ -99,10 +98,12 @@
 .cpg-list .cpg-content h3 {
     font-size: 14px;
     margin-bottom: 5px;
+    padding-left: 10px;
 }
 
 .cpg-list .cpg-content p {
     font-size: 12px;
+    padding-left: 10px;
     color: #666;
 }
 
@@ -117,31 +118,42 @@
 }
 
 @media screen and (max-width: 768px) {
-    .cpg-list {
-        flex-direction: column;
-        align-items: stretch;
-    }
+  /* Ensure the container uses a row layout with wrapping */
+  .cpg-list {
+    display: flex;
+    flex-direction: row; /* Force posts to align in a row */
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  /* Each post takes roughly 50% of the width */
+  .cpg-list .cpg-item {
+    width: calc(50% - 10px);
+    max-width: calc(50% - 10px);
+    display: flex;
+    flex-direction: column; /* Stack image and text */
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  /* Make the image span the full width of the post */
+  .cpg-list .cpg-image-wrapper {
+    width: 100%;
+    aspect-ratio: 4/3;
+  }
+  
+  /* Center the text below the image */
+  .cpg-list .cpg-content {
+    width: 100%;
+    text-align: center;
+  }
 
-    .cpg-list .cpg-item {
-        flex-direction: row;
-        width: 100%;
-        max-width: 100%;
-        margin-bottom: 20px;
-    }
-
-    .cpg-list .cpg-image-wrapper {
-        width: 200px;
-        margin-right: 20px;
-    }
-
-    .cpg-list .cpg-content h3 {
-        font-size: 16px;
-    }
-
-    .cpg-list .cpg-content p {
-        font-size: 12px;
-    }
+  .cpg-list .cpg-content h3 {
+    padding-left: 0px;
+  }
 }
+
+
 
 /* ----------------------------------
    2) SCROLLABLE CONTAINER & CHEVRON ARROWS

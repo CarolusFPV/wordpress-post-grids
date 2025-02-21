@@ -44,12 +44,6 @@
       } else {
         $container.scrollTop($container.scrollTop() + e.originalEvent.deltaY * 3);
       }
-      
-      // Clear any existing timeout and start a new one.
-      clearTimeout(wheelTimeout);
-      wheelTimeout = setTimeout(function() {
-        snapToClosest($container, isDesktop);
-      }, 100); // adjust delay as needed
     });
 
     // Snap to the closest post so that none are half visible.

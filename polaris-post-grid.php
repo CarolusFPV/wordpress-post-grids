@@ -8,100 +8,49 @@ Author URI: https://www.polarisit.nl
 Plugin URI: https://www.polarisit.nl/post-grids
 */
 
+// Include required files.
 require_once plugin_dir_path(__FILE__) . 'includes/shortcode.php';
 require_once plugin_dir_path(__FILE__) . 'includes/helpers.php';
 require_once plugin_dir_path(__FILE__) . 'includes/cpg-cache.php';
 require_once plugin_dir_path(__FILE__) . 'includes/cpg-renderer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/ajax.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin-menu.php';
+
 add_image_size('cpg-grid-thumb', 240, 200, true);
 
 // ============================================
-//  Post Editor -> Post Icon Meta
+//  Post Editor -> Post Icon Meta (Gutenberg Integration)
 // ============================================
 
-function cpg_add_icon_meta_box() {
-    add_meta_box(
-        'cpg_post_icon',
-        'Post Icon',
-        'cpg_post_icon_meta_box_callback',
-        'post',
-        'side',
-        'default'
+// Register the meta field with REST support.
+function cpg_register_post_icon_meta() {
+    register_post_meta( 'post', '_cpg_post_icon', array(
+        'show_in_rest'  => true,
+        'single'       => true,
+        'type'         => 'string',
+        'auth_callback'=> function() {
+            return current_user_can( 'edit_posts' );
+        },
+    ) );
+}
+add_action( 'init', 'cpg_register_post_icon_meta' );
+
+// Enqueue the custom Gutenberg panel JavaScript.
+function cpg_enqueue_icon_panel_script() {
+    $script_path = plugin_dir_path( __FILE__ ) . '/js/cpg-icon-panel.js';
+    $script_url  = plugin_dir_url( __FILE__ ) . '/js/cpg-icon-panel.js';
+    wp_enqueue_script(
+        'cpg-icon-panel',
+        $script_url,
+        array( 'wp-plugins', 'wp-edit-post', 'wp-element', 'wp-components', 'wp-data', 'wp-i18n', 'wp-compose' ),
+        filemtime( $script_path ),
+        true
     );
+
+    // Pass the list of icons (from your saved option) to the script.
+    $icons = get_option('cpg_image_library', array());
+    wp_localize_script( 'cpg-icon-panel', 'cpgIconPanelSettings', array(
+        'icons' => $icons,
+    ) );
 }
-add_action( 'add_meta_boxes', 'cpg_add_icon_meta_box' );
-
-function cpg_post_icon_meta_box_callback($post) {
-    wp_nonce_field('cpg_save_post_icon_meta', 'cpg_post_icon_meta_nonce');
-    $current_icon = get_post_meta($post->ID, '_cpg_post_icon', true);
-    $images = get_option('cpg_image_library', array());
-
-    ?>
-    <label for="cpg_post_icon">Choose an Icon</label>
-    <select name="cpg_post_icon" id="cpg_post_icon">
-        <option value="">None</option>
-        <?php foreach ($images as $image): ?>
-            <option value="<?php echo esc_attr($image); ?>" <?php selected($current_icon, $image); ?>><?php echo basename($image); ?></option>
-        <?php endforeach; ?>
-    </select>
-    <?php
-}
-
-function cpg_save_post_icon_meta($post_id) {
-    if (!isset($_POST['cpg_post_icon_meta_nonce']) || !wp_verify_nonce($_POST['cpg_post_icon_meta_nonce'], 'cpg_save_post_icon_meta')) {
-        return;
-    }
-
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-        return;
-    }
-
-    if (!current_user_can('edit_post', $post_id)) {
-        return;
-    }
-
-    if (isset($_POST['cpg_post_icon'])) {
-        $icon_url = sanitize_text_field($_POST['cpg_post_icon']);
-        update_post_meta($post_id, '_cpg_post_icon', $icon_url);
-    }
-}
-add_action( 'save_post', 'cpg_save_post_icon_meta' );
-
-function cpg_quick_edit_icon_box($column_name, $post_type) {
-    if ($column_name != 'title' || $post_type != 'post') {
-        return;
-    }
-
-    $images = get_option('cpg_image_library', array());
-
-    ?>
-    <fieldset class="inline-edit-col-left">
-        <div class="inline-edit-col">
-            <label>
-                <span class="title">Post Icon</span>
-                <select name="cpg_post_icon">
-                    <option value="">None</option>
-                    <?php foreach ($images as $image): ?>
-                        <option value="<?php echo esc_attr($image); ?>"><?php echo basename($image); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </div>
-    </fieldset>
-    <?php
-}
-add_action( 'quick_edit_custom_box', 'cpg_quick_edit_icon_box', 10, 2 );
-
-function cpg_save_quick_edit_icon_meta($post_id) {
-    if (!current_user_can('edit_post', $post_id)) {
-        return;
-    }
-
-    if (isset($_POST['cpg_post_icon'])) {
-        $icon_url = sanitize_text_field($_POST['cpg_post_icon']);
-        update_post_meta($post_id, '_cpg_post_icon', $icon_url);
-    }
-}
-add_action( 'save_post', 'cpg_save_quick_edit_icon_meta' );
-
+add_action( 'enqueue_block_editor_assets', 'cpg_enqueue_icon_panel_script' );

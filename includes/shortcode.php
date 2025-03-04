@@ -1,5 +1,5 @@
 <?php
-if (!defined('ABSPATH')) {
+if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
@@ -26,12 +26,38 @@ function cpg_register_shortcode( $atts ) {
         'prefetch'          => false,
     ], $atts, 'category_post_grid' );
 
-    // If on a search page, attach the search query.
+    // If on a search page, set the search term.
     if ( is_search() ) {
         $atts['search'] = get_search_query();
     }
 
-    // Determine posts per page.
+    // Normalize the "current" category.
+    if ( 'current' === $atts['category'] ) {
+        if ( is_category() ) {
+            $queried_object = get_queried_object();
+            if ( ! empty( $queried_object->slug ) ) {
+                $atts['category'] = $queried_object->slug;
+            }
+        } elseif ( is_tag() ) {
+            // On tag archives, clear the category so only the tag filter is applied.
+            $atts['category'] = '';
+        } elseif ( is_single() ) {
+            $categories = get_the_category();
+            if ( ! empty( $categories ) ) {
+                $atts['category'] = $categories[0]->slug;
+            }
+        }
+    }
+
+    // On tag archive pages, if no tag is set, assign it from the queried object.
+    if ( is_tag() ) {
+        $tag_term = get_queried_object();
+        if ( ! empty( $tag_term->slug ) ) {
+            $atts['tag'] = $tag_term->slug;
+        }
+    }
+    // (Do not clear the tag value otherwise.)
+
     if ( wp_is_mobile() ) {
         $posts_per_page = (int) $atts['list_limit'];
         $atts['view'] = 'list';
@@ -40,11 +66,11 @@ function cpg_register_shortcode( $atts ) {
     }
 
     // Determine scenario.
-    $scenario = "normal";
+    $scenario = 'normal';
     if ( is_search() ) {
-        $scenario = "search";
+        $scenario = 'search';
     } elseif ( $atts['category'] === 'related' && is_single() ) {
-        $scenario = "related";
+        $scenario = 'related';
     }
 
     if ( ! class_exists( 'CPG_Renderer' ) ) {
@@ -52,20 +78,18 @@ function cpg_register_shortcode( $atts ) {
     }
     $renderer = new CPG_Renderer();
 
-    if ( $scenario === "search" ) {
+    if ( $scenario === 'search' ) {
         $inner_html = $renderer->render_search_scenario( $atts, $paged, $posts_per_page );
-    } elseif ( $scenario === "related" ) {
+    } elseif ( $scenario === 'related' ) {
         $inner_html = $renderer->render_related_scenario( $atts, $posts_per_page, $paged );
     } else {
         $inner_html = $renderer->render_normal_scenario( $atts, $paged, $posts_per_page );
     }
 
-    // Build the outer wrapper.
     $output  = '<div class="cpg-wrapper" data-scenario="' . esc_attr( $scenario ) . '" data-atts="' . esc_attr( wp_json_encode( $atts ) ) . '">';
     $output .= $inner_html;
     $output .= '</div>';
 
-    // Add prefetch script
     if ( $atts['prefetch'] === 'true' ) {
         $output .= '
         <script>
@@ -93,10 +117,7 @@ function cpg_register_shortcode( $atts ) {
         </script>';
     }
 
-    // Add CSS
     $inline_css = cpg_inject_css_once();
-
     return $inline_css . $output;
 }
 add_shortcode( 'category_post_grid', 'cpg_register_shortcode' );
-
